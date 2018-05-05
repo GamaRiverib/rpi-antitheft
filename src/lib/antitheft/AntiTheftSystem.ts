@@ -3,6 +3,8 @@ import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, watch } from 'fs';
 
+import { Gpio } from 'onoff';
+
 const configFilePath = './Config.json';
 
 export enum AntiTheftSystemStates {
@@ -319,6 +321,21 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             this.log('SYSTEM_DISARMED', data);
             // this.saveConfig(); ?
         });
+
+	let pirSensor = new Gpio(0, 'in', 'both');
+	pirSensor.watch((err, val) => {
+		if(err) {
+			console.log(err);
+		} else {
+			console.log('pirSensor', val);
+		}
+		
+	});
+
+	process.on('SIGINT', () => {
+		pirSensor.unexport();
+	});
+
     }
 
     private log(message: string, ... args: any[]): void {
