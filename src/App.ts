@@ -64,7 +64,6 @@ class App {
 
   private configureRoutes():void {
     for (let k in controllers) {
-      console.log(k);
       let controller = new controllers[k]() as Controller;
       controller.routes(this.server);
     }

@@ -47,6 +47,8 @@ export class Sensor {
     name: string;
     group: SensorGroup;
     chime?: string;
+    // TODO:
+    // - Is night-stay
 
     constructor(location: SensorLocation, type: SensorTypes, name: string, group: SensorGroup, chime?: string) {
         this.location = location;
