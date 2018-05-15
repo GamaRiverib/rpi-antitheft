@@ -4,6 +4,7 @@ import * as controllers from './controllers';
 import { Controller } from './lib/Controller';
 import { Handlers } from './lib/Handlers';
 import { AntiTheftSystem, AntiTheftSystemAPI } from './lib/antitheft/AntiTheftSystem';
+import { Server, ServerOptions, listen } from 'socket.io';
 
 const ServerInfo = {
     name: 'rats-web-api',
@@ -18,6 +19,7 @@ class App {
 
   public server;
   private ats: AntiTheftSystemAPI;
+  private socket: Server;
 
   constructor () {
     this.server = restify.createServer(ServerInfo);
@@ -33,6 +35,38 @@ class App {
 
   private configureAntiTheftSystem(): void {
     this.ats = AntiTheftSystem.getInstance();
+
+
+    this.socket = listen(this.server.server);
+
+    this.socket.on('connection', (ws) => {
+      console.log('New web socket client');
+    });
+
+    this.ats.on(AntiTheftSystem.Events.ALERT, () => {
+      this.socket.emit(AntiTheftSystem.Events.ALERT);
+    });
+    this.ats.on(AntiTheftSystem.Events.SENSOR_ACTIVED, (data) => {
+      this.socket.emit(AntiTheftSystem.Events.SENSOR_ACTIVED, data);
+    });
+    this.ats.on(AntiTheftSystem.Events.SIREN_ACTIVED, () => {
+      this.socket.emit(AntiTheftSystem.Events.SIREN_ACTIVED);
+    });
+    this.ats.on(AntiTheftSystem.Events.SIREN_SILENCED, () => {
+      this.socket.emit(AntiTheftSystem.Events.SIREN_SILENCED);
+    });
+    this.ats.on(AntiTheftSystem.Events.SYSTEM_ALARMED, (data) => {
+      this.socket.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, data);
+    });
+    this.ats.on(AntiTheftSystem.Events.SYSTEM_ARMED, (data) => {
+      this.socket.emit(AntiTheftSystem.Events.SYSTEM_ARMED, data);
+    });
+    this.ats.on(AntiTheftSystem.Events.SYSTEM_DISARMED, () => {
+      this.socket.emit(AntiTheftSystem.Events.SYSTEM_DISARMED);
+    });
+    this.ats.on(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, (data) => {
+      this.socket.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, data);
+    });
   }
 
   private configureMiddleware():void {

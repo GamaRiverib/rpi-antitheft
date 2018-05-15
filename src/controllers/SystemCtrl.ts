@@ -53,6 +53,8 @@ export class SystemController extends Controller {
         server.put(this.basePath + '/config/emails/owner/:index', this.updateOwnerEmail);
         server.del(this.basePath + '/config/emails/owner/:index', this.deleteOwnerEmail);
 
+        server.get(this.basePath + '/state', this.getState);
+
         server.put(this.basePath + '/bypass/one', this.bypassOne);
         server.put(this.basePath + '/bypass/all', this.bypassAll);
         server.del(this.basePath + '/bypass/all', this.clearBypass);
@@ -567,6 +569,15 @@ export class SystemController extends Controller {
             }
         }
         next();
+    }
+
+    private getState(req: Request, res: Response, next: Next): void {
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.getState();
+        if (result.success) {
+            res.send(200, result.data);
+        } else {
+            res.send(400, result.error);
+        }
     }
 
     private bypassOne(req: Request, res: Response, next: Next): void {

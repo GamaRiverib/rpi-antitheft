@@ -33,6 +33,7 @@
     "onoff": "^3.0.2",
     "q": "1.5.1",
     "restify": "7.1.1",
+    "socket.io": "^2.1.0",
     "winston": "2.4.2"
   },
   "devDependencies": {
@@ -40,6 +41,7 @@
     "@types/mocha": "5.2.0",
     "@types/node": "9.6.8",
     "@types/onoff": "0.0.27",
+    "@types/socket.io": "^1.4.33",
     "chai": "4.1.2",
     "chai-http": "4.0.0",
     "eslint": "4.19.1",
