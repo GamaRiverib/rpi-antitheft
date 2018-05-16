@@ -1,10 +1,11 @@
 import * as restify from 'restify';
-import { Request, Response, Next, route } from 'restify';
+import { Request, Response, Next, Route, createServer, Server } from 'restify';
 import * as controllers from './controllers';
 import { Controller } from './lib/Controller';
 import { Handlers } from './lib/Handlers';
 import { AntiTheftSystem, AntiTheftSystemAPI } from './lib/antitheft/AntiTheftSystem';
-import { Server, ServerOptions, listen } from 'socket.io';
+// import { Server, listen } from 'socket.io';
+import * as io from 'socket.io';
 
 const ServerInfo = {
     name: 'rats-web-api',
@@ -17,12 +18,12 @@ const ServerInfo = {
 
 class App {
 
-  public server;
+  public server: Server;
   private ats: AntiTheftSystemAPI;
-  private socket: Server;
+  private socket: io.Server;
 
   constructor () {
-    this.server = restify.createServer(ServerInfo);
+    this.server = createServer(ServerInfo);
     this.configure();
   }
 
@@ -37,7 +38,7 @@ class App {
     this.ats = AntiTheftSystem.getInstance();
 
 
-    this.socket = listen(this.server.server);
+    this.socket = io.listen(this.server.server);
 
     this.socket.on('connection', (ws) => {
       console.log('New web socket client');
@@ -101,14 +102,14 @@ class App {
       let controller = new controllers[k]() as Controller;
       controller.routes(this.server);
     }
-    // this.server.opts(/\.*/, this.opts);
+    this.server.opts('/*', this.opts);
     this.server.get('/favicon.ico', this.favicon);
   }
 
-  /*private opts(req: Request, res: Response, next: Next): void {
+  private opts(req: Request, res: Response, next: Next): void {
     res.send(200);
     next();
-  }*/
+  }
 
   private favicon(req: Request, res: Response, next: Next): void {
     res.header('Content-Type', 'text/plain');

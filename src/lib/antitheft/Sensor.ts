@@ -1,14 +1,14 @@
 export enum SensorTypes {
-    PIR_MOTION,
-    MAGNETIC_SWITCH,
-    IR_SWITCH
+    PIR_MOTION = 0,
+    MAGNETIC_SWITCH = 1,
+    IR_SWITCH = 2
 }
 
 export enum SensorGroup {
-    INTERIOR,
-    PERIMETER,
-    EXTERIOR,
-    ACCESS
+    INTERIOR = 0,
+    PERIMETER = 1,
+    EXTERIOR = 2,
+    ACCESS = 3
 }
 
 export class SensorLocation {

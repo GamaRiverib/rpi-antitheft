@@ -64,10 +64,10 @@ export class SystemController extends Controller {
     }
 
     private setGuestCode(req: Request, res: Response, next: Next): void {
-        if (!req.params.code || !req.params.guestCode) {
+        if (!req.body.code || !req.body.guestCode) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.setGuestCode(req.params.code, req.params.guestCode);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.setGuestCode(req.body.code, req.body.guestCode);
             if (result.success) {
                 res.send(204);
             } else {
@@ -84,10 +84,10 @@ export class SystemController extends Controller {
     }
 
     private setOwnerCode(req: Request, res: Response, next: Next): void {
-        if (!req.params.code || !req.params.newCode) {
+        if (!req.body.code || !req.body.newCode) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.updateOwnerCode(req.params.code, req.params.newCode);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.updateOwnerCode(req.body.code, req.body.newCode);
             if (result.success) {
                 res.send(204);
             } else {
@@ -104,10 +104,10 @@ export class SystemController extends Controller {
     }
 
     private setAdminCode(req: Request, res: Response, next: Next): void {
-        if (!req.params.code || !req.params.newCode) {
+        if (!req.body.code || !req.body.newCode) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.updateAdminCode(req.params.code, req.params.newCode);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.updateAdminCode(req.body.code, req.body.newCode);
             if (result.success) {
                 res.send(204);
             } else {
@@ -124,10 +124,10 @@ export class SystemController extends Controller {
     }
 
     private setProgrammingMode(req: Request, res: Response, next: Next): void {
-        if (!req.params.code) {
+        if (!req.body.code) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.setProgrammingMode(req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.setProgrammingMode(req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -196,10 +196,10 @@ export class SystemController extends Controller {
     }
 
     private setEntryTime(req: Request, res: Response, next: Next): void {
-        if (!req.params.time) {
+        if (!req.body.time) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.setEntryTime(req.params.time, req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.setEntryTime(req.body.time, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -216,10 +216,10 @@ export class SystemController extends Controller {
     }
 
     private setExitTime(req: Request, res: Response, next: Next): void {
-        if (!req.params.time) {
+        if (!req.body.time) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.setExitTime(req.params.time, req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.setExitTime(req.body.time, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -236,7 +236,7 @@ export class SystemController extends Controller {
     }
 
     private turnOnBeep(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse = antiTheftSystemAPI.turnOnBeep(req.params.code);
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.turnOnBeep(req.body.code);
         if (result.success) {
             res.send(204);
         } else {
@@ -252,7 +252,7 @@ export class SystemController extends Controller {
     }
 
     private turnOffBeep(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse = antiTheftSystemAPI.turnOffBeep(req.params.code);
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.turnOffBeep(req.body.code);
         if (result.success) {
             res.send(204);
         } else {
@@ -268,7 +268,7 @@ export class SystemController extends Controller {
     }
 
     private toggleBeep(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse = antiTheftSystemAPI.toggleBeep(req.params.code);
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.toggleBeep(req.body.code);
         if (result.success) {
             res.send(204);
         } else {
@@ -284,7 +284,7 @@ export class SystemController extends Controller {
     }
 
     private turnOnSilentAlarm(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse = antiTheftSystemAPI.turnOnSilentAlarm(req.params.code);
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.turnOnSilentAlarm(req.body.code);
         if (result.success) {
             res.send(204);
         } else {
@@ -300,7 +300,7 @@ export class SystemController extends Controller {
     }
 
     private turnOffSilentAlarm(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse = antiTheftSystemAPI.turnOffSilentAlarm(req.params.code);
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.turnOffSilentAlarm(req.body.code);
         if (result.success) {
             res.send(204);
         } else {
@@ -316,7 +316,7 @@ export class SystemController extends Controller {
     }
 
     private toggleSilentAlarm(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse = antiTheftSystemAPI.toggleSilentAlarm(req.params.code);
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.toggleSilentAlarm(req.body.code);
         if (result.success) {
             res.send(204);
         } else {
@@ -396,10 +396,10 @@ export class SystemController extends Controller {
     }
     
     private addOwnerPhone(req: Request, res: Response, next: Next): void {
-        if (!req.params.phone) {
+        if (!req.body.phone) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.addOwnerPhone(req.params.phone, req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.addOwnerPhone(req.body.phone, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -416,10 +416,10 @@ export class SystemController extends Controller {
     }
     
     private updateOwnerPhone(req: Request, res: Response, next: Next): void {
-        if (!req.params.phone) {
+        if (!req.body.phone) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.updateOwnerPhone(req.params.index, req.params.phone, req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.updateOwnerPhone(req.body.index, req.body.phone, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -436,7 +436,7 @@ export class SystemController extends Controller {
     }
     
     private deleteOwnerPhone(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse = antiTheftSystemAPI.deleteOwnerPhone(req.params.index, req.params.code);
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.deleteOwnerPhone(req.body.index, req.body.code);
         if (result.success) {
             res.send(204);
         } else {
@@ -516,10 +516,10 @@ export class SystemController extends Controller {
     }
     
     private addOwnerEmail(req: Request, res: Response, next: Next): void {
-        if (!req.params.email) {
+        if (!req.body.email) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.addOwnerEmail(req.params.email, req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.addOwnerEmail(req.body.email, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -536,10 +536,10 @@ export class SystemController extends Controller {
     }
     
     private updateOwnerEmail(req: Request, res: Response, next: Next): void {
-        if (!req.params.email) {
+        if (!req.body.email) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.updateOwnerEmail(req.params.index, req.params.email, req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.updateOwnerEmail(req.body.index, req.body.email, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -556,7 +556,7 @@ export class SystemController extends Controller {
     }
     
     private deleteOwnerEmail(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse = antiTheftSystemAPI.deleteOwnerEmail(req.params.index, req.params.code);
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.deleteOwnerEmail(req.body.index, req.body.code);
         if (result.success) {
             res.send(204);
         } else {
@@ -581,10 +581,10 @@ export class SystemController extends Controller {
     }
 
     private bypassOne(req: Request, res: Response, next: Next): void {
-        if (!req.params.location) {
+        if (!req.body.location) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.bypassOne(req.params.location, req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.bypassOne(req.body.location, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -601,10 +601,10 @@ export class SystemController extends Controller {
     }
 
     private bypassAll(req: Request, res: Response, next: Next): void {
-        if (!req.params.locations) {
+        if (!req.body.locations) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.bypassAll(req.params.locations, req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.bypassAll(req.body.locations, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -621,7 +621,7 @@ export class SystemController extends Controller {
     }
 
     private clearBypass(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse = antiTheftSystemAPI.clearBypass(req.params.code);
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.clearBypass(req.body.code);
         if (result.success) {
             res.send(204);
         } else {
@@ -637,10 +637,10 @@ export class SystemController extends Controller {
     }
 
     private arm(req: Request, res: Response, next: Next): void {
-        if (!req.params.mode) {
+        if (!req.body.mode) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.arm(req.params.mode, req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.arm(req.body.mode, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {
@@ -657,10 +657,10 @@ export class SystemController extends Controller {
     }
 
     private disarm(req: Request, res: Response, next: Next): void {
-        if (!req.params.code) {
+        if (!req.body.code) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse = antiTheftSystemAPI.disarm(req.params.code);
+            let result: AntiTheftSystemResponse = antiTheftSystemAPI.disarm(req.body.code);
             if (result.success) {
                 res.send(204);
             } else {

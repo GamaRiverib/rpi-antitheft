@@ -41,6 +41,7 @@
     "@types/mocha": "5.2.0",
     "@types/node": "9.6.8",
     "@types/onoff": "0.0.27",
+    "@types/restify": "^5.0.8",
     "@types/socket.io": "^1.4.33",
     "chai": "4.1.2",
     "chai-http": "4.0.0",
