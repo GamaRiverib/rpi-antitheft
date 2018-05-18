@@ -1,6 +1,6 @@
 import { Controller } from '../lib/Controller';
-import { Request, Response, Next, BadRequestError } from 'restify';
-import { AntiTheftSystem, AntiTheftSystemAPI, AntiTheftSystemResponse, AntiTheftSystemErrors } from '../lib/antitheft/AntiTheftSystem';
+import { Request, Response, Next } from 'restify';
+import { AntiTheftSystem, AntiTheftSystemAPI, AntiTheftSystemResponse, AntiTheftSystemErrors, AntiTheftSystemStates } from '../lib/antitheft/AntiTheftSystem';
 import { SensorLocation, Sensor } from '../lib/antitheft/Sensor';
 
 const antiTheftSystemAPI: AntiTheftSystemAPI = AntiTheftSystem.getInstance();
@@ -15,52 +15,73 @@ export class SystemController extends Controller {
 
     routes(server:any):void {
         // Configure user codes
-        server.put(this.basePath + '/config/codes/guest', this.setGuestCode);
-        server.put(this.basePath + '/config/codes/owner', this.setOwnerCode);
-        server.put(this.basePath + '/config/codes/admin', this.setAdminCode);
+        server.put(this.basePath + '/config/codes/guest', this.validateClient, this.setGuestCode);
+        server.put(this.basePath + '/config/codes/owner', this.validateClient, this.setOwnerCode);
+        server.put(this.basePath + '/config/codes/admin', this.validateClient, this.setAdminCode);
 
         // Set programming mode
-        server.put(this.basePath + '/config/programm', this.setProgrammingMode);
-        server.del(this.basePath + '/config/programm', this.unsetProgrammingMode);
+        server.put(this.basePath + '/config/programm', this.validateClient, this.setProgrammingMode);
+        server.del(this.basePath + '/config/programm', this.validateClient, this.unsetProgrammingMode);
 
-        server.put(this.basePath + '/config/sensors', this.setSensor);
-        server.del(this.basePath + '/config/sensors', this.unsetSensor);
+        server.put(this.basePath + '/config/sensors', this.validateClient, this.setSensor);
+        server.del(this.basePath + '/config/sensors', this.validateClient, this.unsetSensor);
 
-        server.put(this.basePath + '/config/times/entry', this.setEntryTime);
-        server.put(this.basePath + '/config/times/exit', this.setExitTime);
-        server.put(this.basePath + '/config/beep/on', this.turnOnBeep);
-        server.put(this.basePath + '/config/beep/off', this.turnOffBeep);
-        server.put(this.basePath + '/config/beep/toggle', this.toggleBeep);
-        server.put(this.basePath + '/config/silent/on', this.turnOnSilentAlarm);
-        server.put(this.basePath + '/config/silent/off', this.turnOffSilentAlarm);
-        server.put(this.basePath + '/config/silent/toggle', this.toggleSilentAlarm);
+        server.put(this.basePath + '/config/times/entry', this.validateClient, this.setEntryTime);
+        server.put(this.basePath + '/config/times/exit', this.validateClient, this.setExitTime);
+        server.put(this.basePath + '/config/beep/on', this.validateClient, this.turnOnBeep);
+        server.put(this.basePath + '/config/beep/off', this.validateClient, this.turnOffBeep);
+        server.put(this.basePath + '/config/beep/toggle', this.validateClient, this.toggleBeep);
+        server.put(this.basePath + '/config/silent/on', this.validateClient, this.turnOnSilentAlarm);
+        server.put(this.basePath + '/config/silent/off', this.validateClient, this.turnOffSilentAlarm);
+        server.put(this.basePath + '/config/silent/toggle', this.validateClient, this.toggleSilentAlarm);
 
-        server.put(this.basePath + '/config/phones/central', this.setCentralPhone);
-        server.del(this.basePath + '/config/phones/central', this.unsetCentralPhone);
-        server.put(this.basePath + '/config/phones/admin', this.setAdminPhone);
-        server.del(this.basePath + '/config/phones/admin', this.unsetAdminPhone);
+        server.put(this.basePath + '/config/phones/central', this.validateClient, this.setCentralPhone);
+        server.del(this.basePath + '/config/phones/central', this.validateClient, this.unsetCentralPhone);
+        server.put(this.basePath + '/config/phones/admin', this.validateClient, this.setAdminPhone);
+        server.del(this.basePath + '/config/phones/admin', this.validateClient, this.unsetAdminPhone);
 
-        server.post(this.basePath + '/config/phones/owner', this.addOwnerPhone);
-        server.put(this.basePath + '/config/phones/owner/:index', this.updateOwnerPhone);
-        server.del(this.basePath + '/config/phones/owner/:index', this.deleteOwnerPhone);
+        server.post(this.basePath + '/config/phones/owner', this.validateClient, this.addOwnerPhone);
+        server.put(this.basePath + '/config/phones/owner/:index', this.validateClient, this.updateOwnerPhone);
+        server.del(this.basePath + '/config/phones/owner/:index', this.validateClient, this.deleteOwnerPhone);
 
-        server.put(this.basePath + '/config/emails/central', this.setCentralEmail);
-        server.del(this.basePath + '/config/emails/central', this.unsetCentralEmail);
-        server.put(this.basePath + '/config/emails/admin', this.setAdminEmail);
-        server.del(this.basePath + '/config/emails/admin', this.unsetAdminEmail);
+        server.put(this.basePath + '/config/emails/central', this.validateClient, this.setCentralEmail);
+        server.del(this.basePath + '/config/emails/central', this.validateClient, this.unsetCentralEmail);
+        server.put(this.basePath + '/config/emails/admin', this.validateClient, this.setAdminEmail);
+        server.del(this.basePath + '/config/emails/admin', this.validateClient, this.unsetAdminEmail);
 
-        server.post(this.basePath + '/config/emails/owner', this.addOwnerEmail);
-        server.put(this.basePath + '/config/emails/owner/:index', this.updateOwnerEmail);
-        server.del(this.basePath + '/config/emails/owner/:index', this.deleteOwnerEmail);
+        server.post(this.basePath + '/config/emails/owner', this.validateClient, this.addOwnerEmail);
+        server.put(this.basePath + '/config/emails/owner/:index', this.validateClient, this.updateOwnerEmail);
+        server.del(this.basePath + '/config/emails/owner/:index', this.validateClient, this.deleteOwnerEmail);
 
-        server.get(this.basePath + '/state', this.getState);
+        server.get(this.basePath + '/config/secret', this.validateClient, this.generateSecret);
 
-        server.put(this.basePath + '/bypass/one', this.bypassOne);
-        server.put(this.basePath + '/bypass/all', this.bypassAll);
-        server.del(this.basePath + '/bypass/all', this.clearBypass);
+        server.get(this.basePath + '/state', this.validateClient, this.getState);
+        server.get(this.basePath + '/uptime', this.getUptime);
 
-        server.put(this.basePath + '/arm', this.arm);
-        server.put(this.basePath + '/disarm', this.disarm);
+        server.put(this.basePath + '/bypass/one', this.validateClient, this.bypassOne);
+        server.put(this.basePath + '/bypass/all', this.validateClient, this.bypassAll);
+        server.del(this.basePath + '/bypass/all', this.validateClient, this.clearBypass);
+
+        server.put(this.basePath + '/arm', this.validateClient, this.arm);
+        server.put(this.basePath + '/disarm', this.validateClient, this.disarm);
+    }
+
+    private validateClient(req: Request, res: Response, next: Next): void {
+        if(!req.headers.authorization) {
+            return res.send(401);
+        }
+        let auth = req.headers.authorization.split(' ');
+        if(auth.length < 2) {
+            return res.send(401);
+        }
+        let clientId: string = auth[0] || '';
+        let token: string = auth[1] || '';
+
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.validateClient(clientId, token);
+        if(!result.success) {
+            return res.send(401);
+        }
+        next();
     }
 
     private setGuestCode(req: Request, res: Response, next: Next): void {
@@ -571,6 +592,20 @@ export class SystemController extends Controller {
         next();
     }
 
+    private generateSecret(req: Request, res: Response, next: Next): void {
+        let result: AntiTheftSystemResponse = antiTheftSystemAPI.deleteOwnerEmail(req.body.index, req.body.code);
+        if (result.success) {
+            res.send(204, result.data);
+        } else {
+            if (result.error == AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
+                res.send(409);
+            } else {
+                res.send(400, { error: result.error });
+            }
+        }
+        next();
+    }
+
     private getState(req: Request, res: Response, next: Next): void {
         let result: AntiTheftSystemResponse = antiTheftSystemAPI.getState();
         if (result.success) {
@@ -578,6 +613,10 @@ export class SystemController extends Controller {
         } else {
             res.send(400, result.error);
         }
+    }
+
+    private getUptime(req: Request, res: Response, next: Next): void {
+        res.send(200, { uptime: Date.now() });
     }
 
     private bypassOne(req: Request, res: Response, next: Next): void {

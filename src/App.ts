@@ -85,9 +85,8 @@ class App {
 
   private crossOrigin(req,res,next) {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'X-Requested-With');
     res.header('Access-Control-Allow-Methods', 'POST,GET,PUT,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-type,Accept,X-Access-Token,X-Key');
+    res.header('Access-Control-Allow-Headers', 'Content-type,Authorization');
     return next();
   }
 
@@ -117,21 +116,21 @@ class App {
     next();
   }
 
-  private onInternalServerError(req:Request, res:Response, err:Error, next:Next):void {
+  private onInternalServerError(req: Request, res: Response, err:Error, next: Next):void {
     console.log('INTERNAL_SERVER_ERROR', req);
     console.log('INTERNAL_SERVER_ERROR', err);
     res.send(500);
     next();
   }
 
-  private onRestifyError(req:Request, res:Response, err:Error, next:Next):void {
+  private onRestifyError(req: Request, res: Response, err:Error, next: Next):void {
     console.log('RESTIFY_ERROR', req);
     console.log('RESTIFY_ERROR', err);
     res.send(404);
     next();
   }
 
-  private onUncaughtException(req:Request, res:Response, route:route, err:Error):void {
+  private onUncaughtException(req: Request, res: Response, route: Route, err: Error):void {
     console.log('UNCAUGHT_EXCEPTION', req);
     console.log('UNCAUGHT_EXCEPTION', err);
     res.send(500);

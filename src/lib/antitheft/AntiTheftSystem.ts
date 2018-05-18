@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, watch } from 'fs';
 import { Gpio } from 'onoff';
+import { Otp } from './Otp';
 
 const configFilePath = './Config.json';
 
@@ -76,6 +77,8 @@ export interface AntiTheftSystemAPI {
     addOwnerEmail(email: string, code?: string): AntiTheftSystemResponse;
     updateOwnerEmail(index: number, email: string, code?: string): AntiTheftSystemResponse;
     deleteOwnerEmail(index: number, code?: string): AntiTheftSystemResponse;
+    generateSecret(): AntiTheftSystemResponse;
+    validateClient(clientId: string, token: string): AntiTheftSystemResponse;
     getState(): AntiTheftSystemResponse;
     bypassOne(location: SensorLocation, code?: string): AntiTheftSystemResponse;
     bypassAll(locations: SensorLocation[], code?: string): AntiTheftSystemResponse;
@@ -111,6 +114,7 @@ export interface AntiTheftSystemConfig {
         admin?: string
     },
     systemWasAlarmed: boolean;
+    clients: { [id: string]: string };
 }
 
 export interface AntiTheftSystemResponse {
@@ -123,6 +127,8 @@ export interface AntiTheftSystemResponse {
 export class AntiTheftSystem implements AntiTheftSystemAPI {
 
     private static instance: AntiTheftSystem = null;
+
+    private otpProvider: Otp;
 
     private config: AntiTheftSystemConfig;
 
@@ -182,6 +188,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
 
     private constructor() {
         this.log('AntiTheftSystem starting...');
+        this.otpProvider = new Otp();
         this.setupConfig();
         this.setupSystemEvents();
     }
@@ -229,7 +236,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                 silentAlarm: false,
                 phones: { owner: [] },
                 emails: { owner: [] },
-                systemWasAlarmed: false
+                systemWasAlarmed: false,
+                clients: {
+                    'galaxys6': '79STCF7GW7Q64TLD',
+                    'iphone6': 'CHARVSV676S39NQJ'
+                }
             };
             this.log(`Saving configuration file with default values...`);
             writeFileSync(configFilePath, JSON.stringify(this.config));
@@ -1147,6 +1158,27 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         return this.getSuccessResponse();
     }
 
+    public generateSecret(): AntiTheftSystemResponse {
+        if(this.config.state != AntiTheftSystemStates.PROGRAMMING) {
+            return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
+        }
+        let secret: string = this.otpProvider.getSecret();
+        return this.getSuccessResponse({ secret: secret });
+
+    }
+    public validateClient(clientId: string, token: string): AntiTheftSystemResponse {
+        if (!this.config.clients[clientId]) {
+            console.log(`Client ${clientId} not exits`);
+            return this.getErrorResponse(AntiTheftSystemErrors.NOT_AUTHORIZED);
+        }
+        let secret: string = this.config.clients[clientId];
+        let result: boolean = this.otpProvider.verify(token, secret);
+        if (!result) {
+            return this.getErrorResponse(AntiTheftSystemErrors.NOT_AUTHORIZED);
+        }
+        return this.getSuccessResponse();
+    }
+
     public getState(): AntiTheftSystemResponse {
         let systemState: SystemState = this.getSystemState();
         return this.getSuccessResponse({ system: systemState });
@@ -1205,7 +1237,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         if(this.config.state != AntiTheftSystemStates.READY) {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
-        if (code && (!this.validateCode(code, 'owner') && !this.validateCode(code, 'guest'))) { // TODO: code is optional?
+        if (code && (!this.validateCode(code, 'owner') && !this.validateCode(code, 'guest'))) { // TODO: code is optional? !code || !this.validateCode(code, 'owner') || !this.validateCode(code, 'guest')
             return this.getErrorResponse(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
         this.config.state = AntiTheftSystemStates.LEAVING;
@@ -1241,10 +1273,16 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         if (!this.validateCode(code, 'owner') && !this.validateCode(code, 'guest')) {
             return this.getErrorResponse(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
-        this.config.state = AntiTheftSystemStates.DISARMED;
+        let newState: AntiTheftSystemStates;
+        if (this.activatedSensors.length > 0) {
+            newState = AntiTheftSystemStates.DISARMED;
+        } else {
+            newState = AntiTheftSystemStates.READY;
+        }
+        this.config.state = newState;
         this.config.mode = null;
         let systemState: SystemState = this.getSystemState();
-        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: state, after: AntiTheftSystemStates.DISARMED });
+        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: state, after: newState });
         this.emitter.emit(AntiTheftSystem.Events.SYSTEM_DISARMED);
         return this.getSuccessResponse();
     }
