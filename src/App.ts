@@ -3,9 +3,11 @@ import { Request, Response, Next, Route, createServer, Server } from 'restify';
 import * as controllers from './controllers';
 import { Controller } from './lib/Controller';
 import { Handlers } from './lib/Handlers';
-import { AntiTheftSystem, AntiTheftSystemAPI } from './lib/antitheft/AntiTheftSystem';
-// import { Server, listen } from 'socket.io';
+import { AntiTheftSystem, AntiTheftSystemAPI, AntiTheftSystemResponse } from './lib/antitheft/AntiTheftSystem';
+import { SystemStateService } from './lib/antitheft/ble/SystemStateService';
+
 import * as io from 'socket.io';
+import * as bleno from 'bleno';
 
 const ServerInfo = {
     name: 'rats-web-api',
@@ -40,6 +42,30 @@ class App {
 
     this.socket = io.listen(this.server.server);
 
+    /*this.socket.use((socket, next) => {
+      console.log('Authorize web socket client');
+      console.log(socket.request);
+      if(!socket.request.headers.authorization) {
+        console.log('Not token received');
+        return next(new Error('Not token received'));
+      }
+      let auth = socket.request.headers.authorization.split(' ');
+      if (auth.length < 2) {
+        console.log('Bad authorization header')
+        return next(new Error('Bad authorization header'));
+      }
+      let clientId: string = auth[0] || '';
+      let token: string = auth[1] || '';
+      console.log('clientId', clientId);
+      console.log('token', token);
+      let result: AntiTheftSystemResponse = this.ats.validateClient(clientId, token);
+      if(!result.success) {
+        console.log('Not authorized');
+        return next(new Error('Not authorized'));
+      }
+      return next();
+    });*/
+
     this.socket.on('connection', (ws) => {
       console.log('New web socket client');
     });
@@ -67,6 +93,31 @@ class App {
     });
     this.ats.on(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, (data) => {
       this.socket.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, data);
+    });
+
+    let bleService = new SystemStateService(this.ats);
+    bleno.on('stateChange', (state) => {
+      if(state == 'poweredOn') {
+        bleno.startAdvertising('RaspberryPi', [bleService.uuid], (err) => {
+          if(err) {
+            console.log(err);
+          }
+        });
+      } else {
+        bleno.stopAdvertising(() => { console.log('Stoped advertising') });
+      }
+    });
+    bleno.on('advertisingStart', (err) => {
+      if(!err) {
+        console.log('Advertising...');
+        bleno.setServices([
+          bleService
+        ], (err) =>  {
+          if(err) {
+            console.log(err);
+          }
+        });
+      }
     });
   }
 
