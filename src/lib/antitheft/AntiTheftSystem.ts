@@ -1,128 +1,20 @@
-import { Sensor, SensorLocation, SensorGroup } from './Sensor';
 import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, watch } from 'fs';
 import { Gpio } from 'onoff';
+
+import { Sensor, SensorLocation, SensorGroup } from './Sensor';
 import { Otp } from './Otp';
 
+import { AntiTheftSystemStates } from './AntiTheftSystemStates';
+import { AntiTheftSystemArmedModes } from './AntiTheftSystemArmedModes';
+import { AntiTheftSystemConfig } from './AntiTheftSystemConfig';
+import { AntiTheftSystemAPI } from './AntiTheftSystemAPI';
+import { SystemState } from './SystemState';
+import { AntiTheftSystemErrors } from './AntiTheftSystemErrors';
+import { AntiTheftSystemResponse } from './AntiTheftSystemResponse';
+
 const configFilePath = './Config.json';
-
-export enum AntiTheftSystemStates {
-    READY = 0,
-    DISARMED = 1,
-    LEAVING = 2,
-    ARMED = 3,
-    ENTERING = 4,
-    ALARMED = 5,
-    PROGRAMMING = 6
-}
-
-export enum AntiTheftSystemArmedModes {
-    AWAY = 0,
-    STAY = 1,
-    MAXIMUM = 2,
-    NIGHT_STAY = 3,
-    INSTANT = 4,
-    CHIME = 5
-}
-
-export enum AntiTheftSystemErrors {
-    INVALID_CODE_FORMAT = 1000,
-    NOT_AUTHORIZED = 2000,
-    INVALID_SYSTEM_STATE = 1001,
-    INVALID_SENSOR_LOCATION = 1002,
-    INVALID_ENTRY_TIME_VALUE = 1003,
-    INVALID_EXIT_TIME_VALUE = 1004,
-    INVALID_PHONE_FORMAT = 1005,
-    INVALID_PHONE_POSITION = 1006,
-    INVALID_EMAIL_FORMAT = 1007,
-    INVALID_EMAIL_POSITION = 1008
-}
-
-export interface SystemState {
-    state: AntiTheftSystemStates;
-    mode: AntiTheftSystemArmedModes;
-    activedSensors: Sensor[];
-    uptime: number;
-}
-
-export interface AntiTheftSystemAPI {
-    on(event: string, listener: (... args: any[]) => void): void;
-    setGuestCode(ownerCode: string, guestCode: string): AntiTheftSystemResponse;
-    updateOwnerCode(currentCode: string, newCode: string): AntiTheftSystemResponse;
-    updateAdminCode(currentCode: string, newcode: string): AntiTheftSystemResponse;
-    setProgrammingMode(adminCode: string): AntiTheftSystemResponse;
-    unsetProgrammingMode(): AntiTheftSystemResponse;
-    setSensor(sensor: Sensor): AntiTheftSystemResponse;
-    unsetSensor(location: SensorLocation): AntiTheftSystemResponse;
-    setEntryTime(seconds: number, code?: string): AntiTheftSystemResponse;
-    setExitTime(seconds: number, code?: string): AntiTheftSystemResponse;
-    turnOnBeep(code?: string): AntiTheftSystemResponse;
-    turnOffBeep(code?: string): AntiTheftSystemResponse;
-    toggleBeep(code?: string): AntiTheftSystemResponse;
-    turnOnSilentAlarm(code?: string): AntiTheftSystemResponse;
-    turnOffSilentAlarm(code?: string): AntiTheftSystemResponse;
-    toggleSilentAlarm(code?: string): AntiTheftSystemResponse;
-    setCentralPhone(phone: string): AntiTheftSystemResponse;
-    unsetCentralPhone(): AntiTheftSystemResponse;
-    setAdminPhone(phone: string): AntiTheftSystemResponse;
-    unsetAdminPhone(): AntiTheftSystemResponse;
-    addOwnerPhone(phone: string, code?: string): AntiTheftSystemResponse;
-    updateOwnerPhone(index: number, phone: string, code?: string): AntiTheftSystemResponse;
-    deleteOwnerPhone(index: number, code?: string): AntiTheftSystemResponse;
-    setCentralEmail(email: string): AntiTheftSystemResponse;
-    unsetCentralEmail(): AntiTheftSystemResponse;
-    setAdminEmail(email: string): AntiTheftSystemResponse;
-    unsetAdminEmail(): AntiTheftSystemResponse;
-    addOwnerEmail(email: string, code?: string): AntiTheftSystemResponse;
-    updateOwnerEmail(index: number, email: string, code?: string): AntiTheftSystemResponse;
-    deleteOwnerEmail(index: number, code?: string): AntiTheftSystemResponse;
-    generateSecret(): AntiTheftSystemResponse;
-    validateClient(clientId: string, token: string): AntiTheftSystemResponse;
-    getState(): AntiTheftSystemResponse;
-    bypassOne(location: SensorLocation, code?: string): AntiTheftSystemResponse;
-    bypassAll(locations: SensorLocation[], code?: string): AntiTheftSystemResponse;
-    clearBypass(code?: string): AntiTheftSystemResponse;
-    arm(mode: AntiTheftSystemArmedModes, code?: string): AntiTheftSystemResponse;
-    disarm(code: string): AntiTheftSystemResponse;
-}
-
-export interface AntiTheftSystemConfig {
-    sirenPin: number;
-    state: AntiTheftSystemStates;
-    mode?: AntiTheftSystemArmedModes;
-    lookouted?: number;
-    sensors: Sensor[];
-    bypass: SensorLocation[]; // Stay?
-    codes: {
-        guest?: string,
-        owner: string,
-        admin: string
-    };
-    entryTime: number; // seconds
-    exitTime: number; // seconds
-    beep: boolean;
-    silentAlarm: boolean;
-    phones: {
-        central?: string,
-        owner: string[],
-        admin?: string
-    };
-    emails: {
-        central?: string,
-        owner: string[],
-        admin?: string
-    },
-    systemWasAlarmed: boolean;
-    clients: { [id: string]: string };
-}
-
-export interface AntiTheftSystemResponse {
-    success: boolean;
-    data?: any;
-    message?: string;
-    error?: AntiTheftSystemErrors
-}
 
 export class AntiTheftSystem implements AntiTheftSystemAPI {
 
@@ -230,8 +122,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                 sensors: [],
                 bypass: [],
                 codes: { owner: '81DC9BDB52D04DC20036DBD8313ED055', admin: '1E4D36177D71BBB3558E43AF9577D70E' },
-                entryTime: 60,
-                exitTime: 90,
+                entryTime: 10, // TODO: 60
+                exitTime: 10, // TODO: 90
                 beep: true,
                 silentAlarm: false,
                 phones: { owner: [] },
@@ -971,6 +863,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         return this.setSilentAlarm(!this.config.silentAlarm, code);
     }
 
+    public getCentralPhone(): AntiTheftSystemResponse {
+        let phone: string = this.config.phones.central || '';
+        return this.getSuccessResponse({ phone: phone });
+    }
+
     public setCentralPhone(phone: string): AntiTheftSystemResponse {
         if(this.config.state != AntiTheftSystemStates.PROGRAMMING) {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
@@ -988,6 +885,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         this.config.phones.central = '';
         this.emitter.emit(AntiTheftSystem.Events.CENTRAL_PHONE_CHANGED, { phone: '' });
         return this.getSuccessResponse();
+    }
+
+    public getAdminPhone(): AntiTheftSystemResponse {
+        let phone: string = this.config.phones.admin || '';
+        return this.getSuccessResponse({ phone: phone });
     }
     
     public setAdminPhone(phone: string): AntiTheftSystemResponse {
@@ -1007,6 +909,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         this.config.phones.admin = '';
         this.emitter.emit(AntiTheftSystem.Events.ADMIN_PHONE_CHANGED, { phone: '' });
         return this.getSuccessResponse();
+    }
+
+    public getOwnerPhones(): AntiTheftSystemResponse {
+        let phones: string[] = this.config.phones.owner || [];
+        return this.getSuccessResponse({ phones: phones });
     }
     
     public addOwnerPhone(phone: string, code?: string): AntiTheftSystemResponse {
@@ -1063,6 +970,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         this.emitter.emit(AntiTheftSystem.Events.OWNER_PHONE_DELETED, { phone: phone[0] });
         return this.getSuccessResponse();
     }
+
+    public getCentralEmail(): AntiTheftSystemResponse {
+        let email: string = this.config.emails.central || '';
+        return this.getSuccessResponse({ email: email });
+    }
     
     public setCentralEmail(email: string): AntiTheftSystemResponse {
         if(this.config.state != AntiTheftSystemStates.PROGRAMMING) {
@@ -1081,6 +993,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         this.config.emails.central = '';
         this.emitter.emit(AntiTheftSystem.Events.CENTRAL_EMAIL_CHANGED, { email: '' });
         return this.getSuccessResponse();
+    }
+
+    public getAdminEmail(): AntiTheftSystemResponse {
+        let email: string = this.config.emails.admin || '';
+        return this.getSuccessResponse({ email: email });
     }
     
     public setAdminEmail(email: string): AntiTheftSystemResponse {
@@ -1101,6 +1018,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         this.config.emails.admin = '';
         this.emitter.emit(AntiTheftSystem.Events.ADMIN_EMAIL_CHANGED, { email: '' });
         return this.getSuccessResponse();
+    }
+
+    public getOwnerEmails(): AntiTheftSystemResponse {
+        let emails: string[] = this.config.emails.owner || [];
+        return this.getSuccessResponse({ emails: emails });
     }
     
     public addOwnerEmail(email: string, code?: string): AntiTheftSystemResponse {

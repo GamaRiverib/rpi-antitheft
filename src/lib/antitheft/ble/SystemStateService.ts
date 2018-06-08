@@ -1,5 +1,5 @@
 import { PrimaryService } from 'bleno';
-import { AntiTheftSystemAPI } from '../AntiTheftSystem';
+import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { SystemStateCharacteristic } from './SystemStateCharacteristic';
 import { UptimeCharacteristic } from './UptimeCharacteristic';
 import { ArmSystemCharacteristic } from './ArmSystemCharacteristic';

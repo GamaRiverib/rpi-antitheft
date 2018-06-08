@@ -1,5 +1,6 @@
 import { Characteristic, Descriptor } from 'bleno';
-import { AntiTheftSystemAPI, AntiTheftSystemResponse } from '../AntiTheftSystem';
+import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
+import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
 
 export class ArmSystemCharacteristic extends Characteristic {
 

@@ -2,12 +2,11 @@ import * as restify from 'restify';
 import { Request, Response, Next, Route, createServer, Server } from 'restify';
 import * as controllers from './controllers';
 import { Controller } from './lib/Controller';
-import { Handlers } from './lib/Handlers';
-import { AntiTheftSystem, AntiTheftSystemAPI, AntiTheftSystemResponse } from './lib/antitheft/AntiTheftSystem';
-import { SystemStateService } from './lib/antitheft/ble/SystemStateService';
-
-import * as io from 'socket.io';
-import * as bleno from 'bleno';
+import { AntiTheftSystem } from './lib/antitheft/AntiTheftSystem';
+import { AntiTheftSystemAPI } from './lib/antitheft/AntiTheftSystemAPI';
+import { WebSocketChannel } from './lib/antitheft/WebSocketChannel';
+import { GsmChannel } from './lib/antitheft/GsmChannel';
+import { BluetoothChannel } from './lib/antitheft/BluetoothChannel';
 
 const ServerInfo = {
     name: 'rats-web-api',
@@ -22,7 +21,6 @@ class App {
 
   public server: Server;
   private ats: AntiTheftSystemAPI;
-  private socket: io.Server;
 
   constructor () {
     this.server = createServer(ServerInfo);
@@ -37,93 +35,22 @@ class App {
   }
 
   private configureAntiTheftSystem(): void {
+    // AntiTheftSystem Configuration
     this.ats = AntiTheftSystem.getInstance();
 
+    // Gsm channel start
+    GsmChannel.start(this.ats);
 
-    this.socket = io.listen(this.server.server);
+    // Web Sockets channel start
+    WebSocketChannel.start(this.ats, this.server.server);
 
-    /*this.socket.use((socket, next) => {
-      console.log('Authorize web socket client');
-      console.log(socket.request);
-      if(!socket.request.headers.authorization) {
-        console.log('Not token received');
-        return next(new Error('Not token received'));
-      }
-      let auth = socket.request.headers.authorization.split(' ');
-      if (auth.length < 2) {
-        console.log('Bad authorization header')
-        return next(new Error('Bad authorization header'));
-      }
-      let clientId: string = auth[0] || '';
-      let token: string = auth[1] || '';
-      console.log('clientId', clientId);
-      console.log('token', token);
-      let result: AntiTheftSystemResponse = this.ats.validateClient(clientId, token);
-      if(!result.success) {
-        console.log('Not authorized');
-        return next(new Error('Not authorized'));
-      }
-      return next();
-    });*/
+    // Bluetooth channel start
+    BluetoothChannel.start(this.ats);
 
-    this.socket.on('connection', (ws) => {
-      console.log('New web socket client');
-    });
-
-    this.ats.on(AntiTheftSystem.Events.ALERT, () => {
-      this.socket.emit(AntiTheftSystem.Events.ALERT);
-    });
-    this.ats.on(AntiTheftSystem.Events.SENSOR_ACTIVED, (data) => {
-      this.socket.emit(AntiTheftSystem.Events.SENSOR_ACTIVED, data);
-    });
-    this.ats.on(AntiTheftSystem.Events.SIREN_ACTIVED, () => {
-      this.socket.emit(AntiTheftSystem.Events.SIREN_ACTIVED);
-    });
-    this.ats.on(AntiTheftSystem.Events.SIREN_SILENCED, () => {
-      this.socket.emit(AntiTheftSystem.Events.SIREN_SILENCED);
-    });
-    this.ats.on(AntiTheftSystem.Events.SYSTEM_ALARMED, (data) => {
-      this.socket.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, data);
-    });
-    this.ats.on(AntiTheftSystem.Events.SYSTEM_ARMED, (data) => {
-      this.socket.emit(AntiTheftSystem.Events.SYSTEM_ARMED, data);
-    });
-    this.ats.on(AntiTheftSystem.Events.SYSTEM_DISARMED, () => {
-      this.socket.emit(AntiTheftSystem.Events.SYSTEM_DISARMED);
-    });
-    this.ats.on(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, (data) => {
-      this.socket.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, data);
-    });
-
-    let bleService = new SystemStateService(this.ats);
-    bleno.on('stateChange', (state) => {
-      if(state == 'poweredOn') {
-        bleno.startAdvertising('RaspberryPi', [bleService.uuid], (err) => {
-          if(err) {
-            console.log(err);
-          }
-        });
-      } else {
-        bleno.stopAdvertising(() => { console.log('Stoped advertising') });
-      }
-    });
-    bleno.on('advertisingStart', (err) => {
-      if(!err) {
-        console.log('Advertising...');
-        bleno.setServices([
-          bleService
-        ], (err) =>  {
-          if(err) {
-            console.log(err);
-          }
-        });
-      }
-    });
   }
 
   private configureMiddleware():void {
     this.server.pre(restify.pre.sanitizePath());
-    this.server.pre(Handlers.useResHandler);
     this.server.use(this.crossOrigin);
     this.server.use(restify.plugins.acceptParser(this.server.acceptable));
     this.server.use(restify.plugins.authorizationParser());
@@ -185,18 +112,6 @@ class App {
     console.log('UNCAUGHT_EXCEPTION', req);
     console.log('UNCAUGHT_EXCEPTION', err);
     res.send(500);
-  }
-
-  private onMongooseConnectionError(err:any):void {
-    console.error('Mongoose default connection error: ' + err);
-    process.exit(err);
-  }
-
-  private onMongooseConnectionOpen(err:any):void {
-    if (err) {
-      console.error('Mongoose default connection error: ' + err);
-      process.exit(err);
-    }
   }
 
 }

@@ -1,6 +1,9 @@
 import { Controller } from '../lib/Controller';
 import { Request, Response, Next } from 'restify';
-import { AntiTheftSystem, AntiTheftSystemAPI, AntiTheftSystemResponse, AntiTheftSystemErrors, AntiTheftSystemStates } from '../lib/antitheft/AntiTheftSystem';
+import { AntiTheftSystem } from '../lib/antitheft/AntiTheftSystem';
+import { AntiTheftSystemAPI } from '../lib/antitheft/AntiTheftSystemAPI';
+import { AntiTheftSystemResponse } from '../lib/antitheft/AntiTheftSystemResponse';
+import { AntiTheftSystemErrors } from '../lib/antitheft/AntiTheftSystemErrors';
 import { SensorLocation, Sensor } from '../lib/antitheft/Sensor';
 
 const antiTheftSystemAPI: AntiTheftSystemAPI = AntiTheftSystem.getInstance();
