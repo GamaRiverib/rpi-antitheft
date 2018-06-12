@@ -51,7 +51,7 @@ class MessageInfo {
 
 export class GsmChannel {
     
-    private static instance: GsmChannel = null;
+    private static INSTANCE: GsmChannel = null;
 
     private gsmClient: IGsmClient;
 
@@ -60,19 +60,19 @@ export class GsmChannel {
     private sendingMessageTimeout: number;
 
     public static start(ats: AntiTheftSystemAPI): void {
-      if (GsmChannel.instance == null) {
-        GsmChannel.instance = new GsmChannel(ats);
+      if (GsmChannel.INSTANCE == null) {
+        GsmChannel.INSTANCE = new GsmChannel(ats);
       }
     }
 
     public static stop(): void {
-      GsmChannel.instance.gsmClient.end()
+      GsmChannel.INSTANCE.gsmClient.end()
         .then(() => {
-          GsmChannel.instance = null;
+          GsmChannel.INSTANCE = null;
         })
         .catch(err => {
           console.log(err);
-          GsmChannel.instance = null;
+          GsmChannel.INSTANCE = null;
         });
     }
 
@@ -110,9 +110,9 @@ export class GsmChannel {
       setTimeout(this.alertSystemReboot.bind(this), 3000);
 
       // AntiTheftSystem Events
-      this.ats.on(AntiTheftSystem.Events.ALERT, this.handleSystemAlertEvent.bind(this));
-      this.ats.on(AntiTheftSystem.Events.SYSTEM_ALARMED, this.handleSystemAlarmedEvent.bind(this));
-      this.ats.on(AntiTheftSystem.Events.SYSTEM_DISARMED, this.handleSystemDisarmedEvent.bind(this));
+      this.ats.on(AntiTheftSystem.EVENTS.SYSTEM_ALERT, this.handleSystemAlertEvent.bind(this));
+      this.ats.on(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, this.handleSystemAlarmedEvent.bind(this));
+      this.ats.on(AntiTheftSystem.EVENTS.SYSTEM_DISARMED, this.handleSystemDisarmedEvent.bind(this));
 
       // GsmClient Events
       this.gsmClient.on(URC.CMTI.code, this.handleReceiveSmsEvent.bind(this));

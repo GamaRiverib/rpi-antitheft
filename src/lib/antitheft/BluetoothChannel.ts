@@ -6,7 +6,7 @@ import * as bleno from 'bleno';
 
 export class BluetoothChannel {
 
-    private static instance: BluetoothChannel = null;
+    private static INSTANCE: BluetoothChannel = null;
     
     private constructor(private ats: AntiTheftSystemAPI) {
         // Bluetooth configuration
@@ -37,8 +37,8 @@ export class BluetoothChannel {
     }
 
     public static start(ats: AntiTheftSystemAPI): void {
-        if (BluetoothChannel.instance == null) {
-            BluetoothChannel.instance = new BluetoothChannel(ats);
+        if (BluetoothChannel.INSTANCE == null) {
+            BluetoothChannel.INSTANCE = new BluetoothChannel(ats);
         }
     }
 
@@ -47,6 +47,6 @@ export class BluetoothChannel {
         bleno.stopAdvertising(function() {
             bleno.disconnect();
         });
-        BluetoothChannel.instance = null;
+        BluetoothChannel.INSTANCE = null;
     }
 }

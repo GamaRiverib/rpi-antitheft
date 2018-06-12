@@ -16,9 +16,14 @@ import { AntiTheftSystemResponse } from './AntiTheftSystemResponse';
 
 const configFilePath = './Config.json';
 
+export interface AntiTheftSystemEventData {
+    system: SystemState;
+    extra: any;
+}
+
 export class AntiTheftSystem implements AntiTheftSystemAPI {
 
-    private static instance: AntiTheftSystem = null;
+    private static INSTANCE: AntiTheftSystem = null;
 
     private otpProvider: Otp;
 
@@ -27,11 +32,18 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
     private emitter: EventEmitter;
 
     private lastStateChange: Date = null;
+
+    private beforeState: AntiTheftSystemStates = null;
+
+    private leftTime: number = -1;
     
     private programmingStateDuration = 60000 * 5; // 5 min
 
     private alarmedStateTimer: NodeJS.Timer;
     private alarmedStateDuration = 60000 * 0.5; // TODO: 3 min
+    private alarmedTimeout = null;
+    private enteringTimeout = null;
+    private leavingTimeout = null;
 
     private maxUnauthorizedIntentCount = 10;
     private windowUnauthorizedIntentLength = 60000; // 1 min = 60,000 ms
@@ -45,37 +57,37 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
 
     private siren: Gpio;
 
-    public static readonly SensorGpios: [4, 17, 18, 27, 22, 23, 24, 25, 5, 6, 12, 13, 19, 16, 26, 20, 21];
+    public static readonly SENSOR_GPIOS: [4, 17, 18, 27, 22, 23, 24, 25, 5, 6, 12, 13, 19, 16, 26, 20, 21];
 
-    public static readonly Events = {
-        NOT_AUTHORIZED: 'AntiTheftSystemEvent::NOT_AUTHORIZED',
-        PIN_CODE_UPDATED: 'AntiTheftSystemEvent::PIN_CODE_UPDATED',
-        SYSTEM_STATE_CHANGED: 'AntiTheftSystemEvent::SYSTEM_STATE_CHANGED',
-        SENSOR_REGISTERED: 'AntiTheftSystemEvent::SENSOR_REGISTERED',
-        SENSOR_CHANGED: 'AntiTheftSystemEvent::SENSOR_CHANGED',
-        SENSOR_DELETED: 'AntiTheftSystemEvent::SENSOR_DELETED',
-        SENSOR_ACTIVED: 'AntiTheftSystemEvent::SENSOR_ACTIVED',
-        ENTRY_TIME_CHANGED: 'AntiTheftSystemEvent::ENTRY_TIME_CHANGED',
-        EXIT_TIME_CHANGED: 'AntiTheftSystemEvent::EXIT_TIME_CHANGED',
-        BEEP_CHANGED: 'AntiTheftSystemEvent::BEEP_CHANGED',
-        SILENT_ALARM_CHANGED: 'AntiTheftSystemEvent::SILENT_ALARM_CHANGED',
-        CENTRAL_PHONE_CHANGED: 'AntiTheftSystemEvent::CENTRAL_PHONE_CHANGED',
-        ADMIN_PHONE_CHANGED: 'AntiTheftSystemEvent::ADMIN_PHONE_CHANGED',
-        OWNER_PHONE_ADDED: 'AntiTheftSystemEvent::OWNER_PHONE_ADDED',
-        OWNER_PHONE_CHANGED: 'AntiTheftSystemEvent::OWNER_PHONE_CHANGED',
-        OWNER_PHONE_DELETED: 'AntiTheftSystemEvent::OWNER_PHONE_DELETED',
-        CENTRAL_EMAIL_CHANGED: 'AntiTheftSystemEvent::CENTRAL_EMAIL_CHANGED',
-        ADMIN_EMAIL_CHANGED: 'AntiTheftSystemEvent::ADMIN_EMAIL_CHANGED',
-        OWNER_EMAIL_ADDED: 'AntiTheftSystemEvent::OWNER_EMAIL_ADDED',
-        OWNER_EMAIL_CHANGED: 'AntiTheftSystemEvent::OWNER_EMAIL_CHANGED',
-        OWNER_EMAIL_DELETED: 'AntiTheftSystemEvent::OWNER_EMAIL_DELETED',
-        BYPASS_CHANGE: 'AntiTheftSystemEvent::BYPASS_CHANGE',
-        SYSTEM_ARMED: 'AntiTheftSystemEvent::SYSTEM_ARMED',
-        SYSTEM_DISARMED: 'AntiTheftSystemEvent::SYSTEM_DISARMED',
-        SYSTEM_ALARMED: 'AntiTheftSystemEvent::SYSTEM_ALARMED',
-        ALERT: 'AntiTheftSystemEvent::ALERT',
-        SIREN_ACTIVED: 'AntiTheftSystemEvent::SIREN_ACTIVED',
-        SIREN_SILENCED: 'AntiTheftSystemEvent::SIREN_SILENCED'
+    public static readonly EVENTS = {
+        NOT_AUTHORIZED: 'NOT_AUTHORIZED',
+        PIN_CODE_UPDATED: 'PIN_CODE_UPDATED',
+        SYSTEM_STATE_CHANGED: 'SYSTEM_STATE_CHANGED',
+        SENSOR_REGISTERED: 'SENSOR_REGISTERED',
+        SENSOR_CHANGED: 'SENSOR_CHANGED',
+        SENSOR_DELETED: 'SENSOR_DELETED',
+        SENSOR_ACTIVED: 'SENSOR_ACTIVED',
+        ENTRY_TIME_CHANGED: 'ENTRY_TIME_CHANGED',
+        EXIT_TIME_CHANGED: 'EXIT_TIME_CHANGED',
+        BEEP_CHANGED: 'BEEP_CHANGED',
+        SILENT_ALARM_CHANGED: 'SILENT_ALARM_CHANGED',
+        CENTRAL_PHONE_CHANGED: 'CENTRAL_PHONE_CHANGED',
+        ADMIN_PHONE_CHANGED: 'ADMIN_PHONE_CHANGED',
+        OWNER_PHONE_ADDED: 'OWNER_PHONE_ADDED',
+        OWNER_PHONE_CHANGED: 'OWNER_PHONE_CHANGED',
+        OWNER_PHONE_DELETED: 'OWNER_PHONE_DELETED',
+        CENTRAL_EMAIL_CHANGED: 'CENTRAL_EMAIL_CHANGED',
+        ADMIN_EMAIL_CHANGED: 'ADMIN_EMAIL_CHANGED',
+        OWNER_EMAIL_ADDED: 'OWNER_EMAIL_ADDED',
+        OWNER_EMAIL_CHANGED: 'OWNER_EMAIL_CHANGED',
+        OWNER_EMAIL_DELETED: 'OWNER_EMAIL_DELETED',
+        BYPASS_CHANGE: 'BYPASS_CHANGE',
+        SYSTEM_ARMED: 'SYSTEM_ARMED',
+        SYSTEM_DISARMED: 'SYSTEM_DISARMED',
+        SYSTEM_ALARMED: 'SYSTEM_ALARMED',
+        SYSTEM_ALERT: 'SYSTEM_ALERT',
+        SIREN_ACTIVED: 'SIREN_ACTIVED',
+        SIREN_SILENCED: 'SIREN_SILENCED'
     };
 
     private constructor() {
@@ -95,12 +107,31 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
 
     private getSystemState(): SystemState {
         let systemState: SystemState = {
+            before: this.beforeState,
             state: this.config.state,
             mode: this.config.mode,
             activedSensors: this.activatedSensors,
+            leftTime: this.leftTime,
             uptime: Date.now()
         };
         return systemState;
+    }
+
+    private setSystemState(newState: AntiTheftSystemStates, mode?: AntiTheftSystemArmedModes): SystemState {
+        this.beforeState = this.config.state;
+        this.config.state = newState;
+        if(mode) {
+            this.config.mode = mode;
+        } else {
+            this.config.mode = null;
+        }
+        this.leftTime = -1;
+        if(newState == AntiTheftSystemStates.ENTERING) {
+            this.leftTime = Date.now() + (this.config.entryTime * 1000);
+        } else if(newState == AntiTheftSystemStates.LEAVING) {
+            this.leftTime = Date.now() + (this.config.exitTime * 1000);
+        }
+        return this.getSystemState();
     }
 
     private setupConfig(): void {
@@ -164,7 +195,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
     }
 
     private setupSensors(): void {
-        this.log('Configuring sensors...');
+        this.log(`Configuring ${this.config.sensors.length} sensors...`);
         let gpiosConfigured: Gpio[] = [];
         this.config.sensors.forEach((s: Sensor, i: number) => {
             if (!s.location.expander) {
@@ -175,7 +206,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                         // TODO: ??
                         return;
                     }
-                    this.emitter.emit(AntiTheftSystem.Events.SENSOR_ACTIVED, { sensor: s, value: val });
+                    this.emitter.emit(AntiTheftSystem.EVENTS.SENSOR_ACTIVED, { sensor: s, value: val });
                 });
                 gpiosConfigured.push(gpio);
             } else {
@@ -191,7 +222,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
     private setupSystemEvents(): void {
         this.emitter = new EventEmitter();
 
-        this.emitter.on(AntiTheftSystem.Events.NOT_AUTHORIZED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.NOT_AUTHORIZED, (data) => {
             this.unauthorizedIntents.push(new Date());
             let now = Date.now();
             let intents: Date[] = [];
@@ -208,119 +239,129 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
 
         // TODO: Intents by INVALID_STATE
 
-        this.emitter.on(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, (data) => {
             this.lastStateChange = new Date();
             this.log('SYSTEM_STATE_CHANGED', data);
-            if (data.before == AntiTheftSystemStates.PROGRAMMING) {
+            if (data.system.beforeState == AntiTheftSystemStates.PROGRAMMING) {
                 this.saveConfig();
                 this.setupConfig();
             }
         });
 
-        this.emitter.on(AntiTheftSystem.Events.SENSOR_REGISTERED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SENSOR_REGISTERED, (data) => {
             this.log('SENSOR_REGISTERED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.SENSOR_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SENSOR_CHANGED, (data) => {
             this.log('SENSOR_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.SENSOR_DELETED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SENSOR_DELETED, (data) => {
             this.log('SENSOR_DELETED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.ENTRY_TIME_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.ENTRY_TIME_CHANGED, (data) => {
             this.log('ENTRY_TIME_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.EXIT_TIME_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.EXIT_TIME_CHANGED, (data) => {
             this.log('EXIT_TIME_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.BEEP_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.BEEP_CHANGED, (data) => {
             this.log('BEEP_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.SILENT_ALARM_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SILENT_ALARM_CHANGED, (data) => {
             this.log('SILENT_ALARM_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.CENTRAL_PHONE_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.CENTRAL_PHONE_CHANGED, (data) => {
             this.log('CENTRAL_PHONE_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.ADMIN_PHONE_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.ADMIN_PHONE_CHANGED, (data) => {
             this.log('ADMIN_PHONE_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.OWNER_PHONE_ADDED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.OWNER_PHONE_ADDED, (data) => {
             this.log('OWNER_PHONE_ADDED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.OWNER_PHONE_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.OWNER_PHONE_CHANGED, (data) => {
             this.log('OWNER_PHONE_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.OWNER_PHONE_DELETED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.OWNER_PHONE_DELETED, (data) => {
             this.log('OWNER_PHONE_DELETED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.CENTRAL_EMAIL_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.CENTRAL_EMAIL_CHANGED, (data) => {
             this.log('CENTRAL_EMAIL_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.ADMIN_EMAIL_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.ADMIN_EMAIL_CHANGED, (data) => {
             this.log('ADMIN_EMAIL_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.OWNER_EMAIL_ADDED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.OWNER_EMAIL_ADDED, (data) => {
             this.log('OWNER_EMAIL_ADDED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.OWNER_EMAIL_CHANGED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.OWNER_EMAIL_CHANGED, (data) => {
             this.log('OWNER_EMAIL_CHANGED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.OWNER_EMAIL_DELETED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.OWNER_EMAIL_DELETED, (data) => {
             this.log('OWNER_EMAIL_DELETED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.BYPASS_CHANGE, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.BYPASS_CHANGE, (data) => {
             this.log('BYPASS_CHANGE', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.SYSTEM_ARMED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SYSTEM_ARMED, (data) => {
             this.log('SYSTEM_ARMED', data);
             // this.saveConfig(); ?
         });
 
-        this.emitter.on(AntiTheftSystem.Events.SYSTEM_DISARMED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SYSTEM_DISARMED, (data) => {
             this.log('SYSTEM_DISARMED');
-            this.siren.writeSync(0);
-            let systemState: SystemState = this.getSystemState();
-            this.emitter.emit(AntiTheftSystem.Events.SIREN_SILENCED, { system: systemState });
-
+            
+            if(this.alarmedTimeout) {
+                clearTimeout(this.alarmedTimeout);
+            }
+            if(this.enteringTimeout) {
+                clearTimeout(this.enteringTimeout);
+            }
+            if(this.leavingTimeout) {
+                clearTimeout(this.leavingTimeout);
+            }
             if(this.alarmedStateTimer) {
                 clearInterval(this.alarmedStateTimer);
             }
+
+            this.siren.writeSync(0);
+            let systemState: SystemState = this.getSystemState();
+            this.emitter.emit(AntiTheftSystem.EVENTS.SIREN_SILENCED, { system: systemState });
 
             if(this.config.systemWasAlarmed) {
                 this.alarmedStateTimer = setInterval(() => {
@@ -338,7 +379,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             this.saveConfig();
         });
 
-        this.emitter.on(AntiTheftSystem.Events.SYSTEM_ALARMED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, (data) => {
             this.log('SYSTEM_ALARMED', data);
             // TODO:
             this.saveConfig(); // TODO: <- ?
@@ -352,22 +393,20 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             }, 400);
 
             let systemState: SystemState = this.getSystemState();
-            this.emitter.emit(AntiTheftSystem.Events.SIREN_ACTIVED, { system: systemState });
+            this.emitter.emit(AntiTheftSystem.EVENTS.SIREN_ACTIVED, { system: systemState });
 
-            setTimeout(() => {
+            this.alarmedTimeout = setTimeout(() => {
                 this.log('The system has not been disarmed yet');
                 this.config.systemWasAlarmed = true;
                 clearInterval(this.alarmedStateTimer);
                 this.siren.writeSync(0);
-                let systemState = this.getSystemState();
-                this.emitter.emit(AntiTheftSystem.Events.SIREN_SILENCED, { system: systemState });
-                let currentState = this.config.state;
-                this.config.state = AntiTheftSystemStates.ARMED;
-                this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: currentState, after: AntiTheftSystemStates.ARMED });
+                let systemState = this.setSystemState(AntiTheftSystemStates.ARMED);
+                this.emitter.emit(AntiTheftSystem.EVENTS.SIREN_SILENCED, { system: systemState });
+                this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
             }, this.alarmedStateDuration);
         });
 
-        this.emitter.on(AntiTheftSystem.Events.SENSOR_ACTIVED, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SENSOR_ACTIVED, (data) => {
             this.log('SENSOR_ACTIVED', data.sensor.name, data.value == 0 ? 'OFF' : 'ON');
             let sensor: Sensor = data.sensor;
             let value: number = data.value;
@@ -388,45 +427,37 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                 switch(state) {
                     case AntiTheftSystemStates.ALARMED:
                         // TODO: log activity
-                        this.log('Log activity');
+                        this.log(`Sensor ${sensor.name} actived`);
                         break;
                     case AntiTheftSystemStates.ARMED:
+                        // TODO: Bypass sensors/zones
                         let mode: AntiTheftSystemArmedModes = this.config.mode ? parseInt(this.config.mode.toString()) : 0;
                         switch(mode) {
                             case AntiTheftSystemArmedModes.AWAY:
                                 switch(sensor.group) {
                                     case SensorGroup.ACCESS:
-                                        this.config.state = AntiTheftSystemStates.ENTERING;
-                                        systemState = this.getSystemState();
+                                        systemState = this.setSystemState(AntiTheftSystemStates.ENTERING);
                                         let entryTime = this.config.entryTime * 1000;
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, 
-                                            { 
-                                                system: systemState, 
-                                                before: AntiTheftSystemStates.ARMED, 
-                                                after: AntiTheftSystemStates.ENTERING,
-                                                entryTime: entryTime
-                                            });
-                                        setTimeout(() => {
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                        this.enteringTimeout = setTimeout(() => {
                                             let currentState = this.config.state;
                                             if(currentState == AntiTheftSystemStates.ENTERING) {
-                                                let systemState = this.getSystemState();
-                                                this.config.state = AntiTheftSystemStates.ALARMED;
-                                                systemState = this.getSystemState();
-                                                this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.ARMED, after: AntiTheftSystemStates.ALARMED });
-                                                this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+                                                systemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
+                                                this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                                this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
                                             }
                                         }, entryTime);
                                         break;
                                     case SensorGroup.EXTERIOR:
-                                        this.log('Alert');
-                                        this.emitter.emit(AntiTheftSystem.Events.ALERT, { system: systemState });
+                                        this.log(`[ALERT]: Sensor ${sensor.name} actived`);
+                                        systemState = this.getSystemState();
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALERT, { system: systemState });
                                         break;
                                     case SensorGroup.INTERIOR:
                                     case SensorGroup.PERIMETER:
-                                        this.config.state = AntiTheftSystemStates.ALARMED;
-                                        systemState = this.getSystemState();
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.ARMED, after: AntiTheftSystemStates.ALARMED });
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+                                        systemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
                                         break;
                                     default:
                                         this.log('This message should not be displayed');
@@ -438,7 +469,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                                     case SensorGroup.EXTERIOR:
                                     case SensorGroup.INTERIOR:
                                     case SensorGroup.PERIMETER:
-                                        this.log('Chime');
+                                        this.log(`[CHIME]: Sensor ${sensor.name} actived`);
                                         break;
                                     default:
                                         this.log('This message should not be displayed');
@@ -447,20 +478,20 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                             case AntiTheftSystemArmedModes.INSTANT:
                                 switch(sensor.group) {
                                     case SensorGroup.ACCESS:
-                                        this.config.state = AntiTheftSystemStates.ALARMED;
-                                        systemState = this.getSystemState();
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.ARMED, after: AntiTheftSystemStates.ALARMED });
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+                                        systemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
                                         break;
                                     case SensorGroup.EXTERIOR:
-                                        this.log('Log activity'); // TODO: ??
+                                        this.log(`[ALERT]: Sensor ${sensor.name} actived`); // TODO: ??
+                                        systemState = this.getSystemState();
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALERT, { system: systemState });
                                         break;
                                     case SensorGroup.INTERIOR:
                                     case SensorGroup.PERIMETER:
-                                        this.config.state = AntiTheftSystemStates.ALARMED;
-                                        systemState = this.getSystemState();
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.ARMED, after: AntiTheftSystemStates.ALARMED });
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+                                        systemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
                                         break;
                                     default:
                                         this.log('This message should not be displayed');
@@ -472,10 +503,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                                     case SensorGroup.EXTERIOR:
                                     case SensorGroup.INTERIOR:
                                     case SensorGroup.PERIMETER:
-                                        this.config.state = AntiTheftSystemStates.ALARMED;
-                                        systemState = this.getSystemState();
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.ARMED, after: AntiTheftSystemStates.ALARMED });
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+                                        systemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
                                         break;
                                     default:
                                         this.log('This message should not be displayed');
@@ -484,23 +514,22 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                             case AntiTheftSystemArmedModes.NIGHT_STAY:
                                 switch(sensor.group) {
                                     case SensorGroup.ACCESS:
-                                        this.config.state = AntiTheftSystemStates.ALARMED;
-                                        systemState = this.getSystemState();
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.ARMED, after: AntiTheftSystemStates.ALARMED });
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+                                        systemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
                                         break;
                                     case SensorGroup.EXTERIOR:
-                                        this.log('Alert');
-                                        this.emitter.emit(AntiTheftSystem.Events.ALERT, { system: systemState });
+                                        this.log(`[ALERT]: Sensor ${sensor.name} actived`);
+                                        systemState = this.getSystemState();
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALERT, { system: systemState });
                                         break;
                                     case SensorGroup.INTERIOR:
-                                        this.log('Ignore');
+                                        this.log(`[IGNORE]: Sensor ${sensor.name} actived`);
                                         break;
                                     case SensorGroup.PERIMETER:
-                                        this.config.state = AntiTheftSystemStates.ALARMED;
-                                        systemState = this.getSystemState();
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.ARMED, after: AntiTheftSystemStates.ALARMED });
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+                                        systemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
                                         break;
                                     default:
                                         this.log('This message should not be displayed');
@@ -509,38 +538,30 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                             case AntiTheftSystemArmedModes.STAY:
                                 switch(sensor.group) {
                                     case SensorGroup.ACCESS:
-                                        this.config.state = AntiTheftSystemStates.ENTERING;
-                                        systemState = this.getSystemState();
+                                        systemState = this.setSystemState(AntiTheftSystemStates.ENTERING);
                                         let entryTime = this.config.entryTime * 1000;
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, 
-                                            { 
-                                                system: systemState, 
-                                                before: AntiTheftSystemStates.ARMED, 
-                                                after: AntiTheftSystemStates.ENTERING,
-                                                entryTime: entryTime
-                                            });
-                                        setTimeout(() => {
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                        this.enteringTimeout = setTimeout(() => {
                                             let currentState = this.config.state;
                                             if(currentState == AntiTheftSystemStates.ENTERING) {
-                                                this.config.state = AntiTheftSystemStates.ALARMED;
-                                                systemState = this.getSystemState();
-                                                this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.ARMED, after: AntiTheftSystemStates.ALARMED });
-                                                this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+                                                systemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
+                                                this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                                this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
                                             }
                                         }, entryTime);
                                         break;
                                     case SensorGroup.EXTERIOR:
-                                        this.log('Alert');
-                                        this.emitter.emit(AntiTheftSystem.Events.ALERT, { system: systemState });
+                                        this.log(`[ALERT]: Sensor ${sensor.name} actived`);
+                                        systemState = this.getSystemState();
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALERT, { system: systemState });
                                         break;
                                     case SensorGroup.INTERIOR:
-                                        this.log('Ignore');
+                                        this.log(`[IGNORE]: Sensor ${sensor.name} actived`);
                                         break;
                                     case SensorGroup.PERIMETER:
-                                        this.config.state = AntiTheftSystemStates.ALARMED;
-                                        systemState = this.getSystemState();
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.ARMED, after: AntiTheftSystemStates.ALARMED });
-                                        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+                                        systemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                                        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
                                         break;
                                     default:
                                         this.log('This message should not be displayed');
@@ -554,7 +575,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                     case AntiTheftSystemStates.ENTERING:
                     case AntiTheftSystemStates.LEAVING:
                     case AntiTheftSystemStates.PROGRAMMING:
-                        this.log('Ignore');
+                        this.log(`[IGNORE]: Sensor ${sensor.name} actived`);
                         break;
                     case AntiTheftSystemStates.READY:
                         let index = -1;
@@ -565,9 +586,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                             }
                         });
                         if (index < 0) {
-                            this.config.state = AntiTheftSystemStates.DISARMED;
-                            systemState = this.getSystemState();
-                            this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.READY, after: AntiTheftSystemStates.DISARMED });
+                            systemState = this.setSystemState(AntiTheftSystemStates.DISARMED);
+                            this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
                         }
                         break;
                     default:
@@ -585,14 +605,13 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
                     this.activatedSensors.splice(index, 1);
                 }
                 if(this.config.state == AntiTheftSystemStates.DISARMED && this.activatedSensors.length == 0) {
-                    this.config.state = AntiTheftSystemStates.READY;
-                    systemState = this.getSystemState();
-                    this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.DISARMED, after: AntiTheftSystemStates.READY });
+                    systemState = this.setSystemState(AntiTheftSystemStates.READY);
+                    this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
                 }
             }
         });
 
-        this.emitter.on(AntiTheftSystem.Events.ALERT, (data) => {
+        this.emitter.on(AntiTheftSystem.EVENTS.SYSTEM_ALERT, (data) => {
             this.log('ALERT', data);
             this.alerts.push(new Date());
             let now = Date.now();
@@ -649,12 +668,12 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_CODE_FORMAT);
         }
         if(!this.validateCode(currentCode, user)) {
-            this.emitter.emit(AntiTheftSystem.Events.NOT_AUTHORIZED, { action: 'updateCode', config: this.config });
+            this.emitter.emit(AntiTheftSystem.EVENTS.NOT_AUTHORIZED, { action: 'updateCode', config: this.config });
             return this.getErrorResponse(AntiTheftSystemErrors.NOT_AUTHORIZED);;
         }
         let hash = createHash('md5').update(newCode).digest('hex').toUpperCase();
         this.config.codes[destinationUser || user] = hash;
-        this.emitter.emit(AntiTheftSystem.Events.PIN_CODE_UPDATED, destinationUser || user);
+        this.emitter.emit(AntiTheftSystem.EVENTS.PIN_CODE_UPDATED, destinationUser || user);
         return this.getSuccessResponse();
     }
 
@@ -679,7 +698,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             }
         }
         this.config.beep = value;
-        this.emitter.emit(AntiTheftSystem.Events.BEEP_CHANGED, { beep: this.config.beep });
+        this.emitter.emit(AntiTheftSystem.EVENTS.BEEP_CHANGED, { beep: this.config.beep });
         return this.getSuccessResponse();
     }
 
@@ -693,7 +712,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             }
         }
         this.config.silentAlarm = value;
-        this.emitter.emit(AntiTheftSystem.Events.SILENT_ALARM_CHANGED, { silentAlarm: this.config.silentAlarm });
+        this.emitter.emit(AntiTheftSystem.EVENTS.SILENT_ALARM_CHANGED, { silentAlarm: this.config.silentAlarm });
         return this.getSuccessResponse();
     }
 
@@ -708,10 +727,10 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
     }
 
     public static getInstance(): AntiTheftSystem {
-        if (this.instance == null) {
-            this.instance = new AntiTheftSystem();
+        if (this.INSTANCE == null) {
+            this.INSTANCE = new AntiTheftSystem();
         }
-        return this.instance;
+        return this.INSTANCE;
     }
 
     public on(event: string, listener: (... args: any[]) => void): void {
@@ -745,19 +764,17 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
         if(!this.validateCode(adminCode, 'admin')) {
-            this.emitter.emit(AntiTheftSystem.Events.NOT_AUTHORIZED, { action: 'setProgrammingMode', config: this.config });
+            this.emitter.emit(AntiTheftSystem.EVENTS.NOT_AUTHORIZED, { action: 'setProgrammingMode', config: this.config });
             return this.getErrorResponse(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
-        this.config.state = AntiTheftSystemStates.PROGRAMMING;
-        let systemState: SystemState = this.getSystemState();
-        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: currentState, after: AntiTheftSystemStates.PROGRAMMING });
+        let systemState: SystemState = this.setSystemState(AntiTheftSystemStates.PROGRAMMING);
+        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
 
         setTimeout(() => {
             if (this.config.state == AntiTheftSystemStates.PROGRAMMING) {
-                this.config.state = AntiTheftSystemStates.DISARMED;
-                let systemState: SystemState = this.getSystemState();
-                this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.PROGRAMMING, after: AntiTheftSystemStates.DISARMED });
-                this.emitter.emit(AntiTheftSystem.Events.SYSTEM_DISARMED, { system: systemState });
+                let systemState: SystemState = this.setSystemState(AntiTheftSystemStates.DISARMED);
+                this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+                this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_DISARMED, { system: systemState });
             }
         }, this.programmingStateDuration);
         
@@ -769,9 +786,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         if(currentState != AntiTheftSystemStates.PROGRAMMING) {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
-        this.config.state = AntiTheftSystemStates.DISARMED;
-        let systemState: SystemState = this.getSystemState();
-        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: AntiTheftSystemStates.PROGRAMMING, after: AntiTheftSystemStates.DISARMED });
+        let systemState: SystemState = this.setSystemState(AntiTheftSystemStates.DISARMED);
+        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
         return this.getSuccessResponse();
     }
 
@@ -783,11 +799,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         let index = this.getSensorIndexByLocation(sensor.location);
         if(index < 0) {
             this.config.sensors.push(sensor);
-            this.emitter.emit(AntiTheftSystem.Events.SENSOR_REGISTERED, { sensor: sensor });
+            this.emitter.emit(AntiTheftSystem.EVENTS.SENSOR_REGISTERED, { sensor: sensor });
         } else {
             let currentSensor: Sensor = this.config.sensors[index];
             this.config.sensors[index] = sensor;
-            this.emitter.emit(AntiTheftSystem.Events.SENSOR_CHANGED, { before: currentSensor, after: sensor });
+            this.emitter.emit(AntiTheftSystem.EVENTS.SENSOR_CHANGED, { before: currentSensor, after: sensor });
         }
         return this.getSuccessResponse();
     }
@@ -801,7 +817,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SENSOR_LOCATION);
         }
         let deletedSensors: Sensor[] = this.config.sensors.splice(index, 1);
-        this.emitter.emit(AntiTheftSystem.Events.SENSOR_DELETED, { sensor: deletedSensors[0] });
+        this.emitter.emit(AntiTheftSystem.EVENTS.SENSOR_DELETED, { sensor: deletedSensors[0] });
         return this.getSuccessResponse();
     }
 
@@ -818,7 +834,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_ENTRY_TIME_VALUE);
         }
         this.config.entryTime = seconds;
-        this.emitter.emit(AntiTheftSystem.Events.ENTRY_TIME_CHANGED, { entryTime: seconds });
+        this.emitter.emit(AntiTheftSystem.EVENTS.ENTRY_TIME_CHANGED, { entryTime: seconds });
         return this.getSuccessResponse();
     }
 
@@ -835,7 +851,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_EXIT_TIME_VALUE);
         }
         this.config.exitTime = seconds;
-        this.emitter.emit(AntiTheftSystem.Events.EXIT_TIME_CHANGED, { exitTime: seconds });
+        this.emitter.emit(AntiTheftSystem.EVENTS.EXIT_TIME_CHANGED, { exitTime: seconds });
         return this.getSuccessResponse();
     }
 
@@ -874,7 +890,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate phone format
         this.config.phones.central = phone;
-        this.emitter.emit(AntiTheftSystem.Events.CENTRAL_PHONE_CHANGED, { phone: phone });
+        this.emitter.emit(AntiTheftSystem.EVENTS.CENTRAL_PHONE_CHANGED, { phone: phone });
         return this.getSuccessResponse();
     }
     
@@ -883,7 +899,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
         this.config.phones.central = '';
-        this.emitter.emit(AntiTheftSystem.Events.CENTRAL_PHONE_CHANGED, { phone: '' });
+        this.emitter.emit(AntiTheftSystem.EVENTS.CENTRAL_PHONE_CHANGED, { phone: '' });
         return this.getSuccessResponse();
     }
 
@@ -898,7 +914,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate phone format
         this.config.phones.admin = phone;
-        this.emitter.emit(AntiTheftSystem.Events.ADMIN_PHONE_CHANGED, { phone: phone });
+        this.emitter.emit(AntiTheftSystem.EVENTS.ADMIN_PHONE_CHANGED, { phone: phone });
         return this.getSuccessResponse();
     }
     
@@ -907,7 +923,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
         this.config.phones.admin = '';
-        this.emitter.emit(AntiTheftSystem.Events.ADMIN_PHONE_CHANGED, { phone: '' });
+        this.emitter.emit(AntiTheftSystem.EVENTS.ADMIN_PHONE_CHANGED, { phone: '' });
         return this.getSuccessResponse();
     }
 
@@ -928,8 +944,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         // TODO: Validate phone format
         // TODO: Validate repeat
         // TODO: Validate max 
+        // TODO: Send SMS
         this.config.phones.owner.push(phone);
-        this.emitter.emit(AntiTheftSystem.Events.OWNER_PHONE_ADDED, { phone: phone });
+        this.emitter.emit(AntiTheftSystem.EVENTS.OWNER_PHONE_ADDED, { phone: phone });
         return this.getSuccessResponse();
     }
     
@@ -944,11 +961,12 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate phone format
         // TODO: Validate repeat
+        // TODO: Send SMS
         if(index < 0 || index > this.config.phones.owner.length) {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_PHONE_POSITION);
         }
         this.config.phones.owner[index] = phone
-        this.emitter.emit(AntiTheftSystem.Events.OWNER_PHONE_CHANGED, { phone: phone });
+        this.emitter.emit(AntiTheftSystem.EVENTS.OWNER_PHONE_CHANGED, { phone: phone });
         return this.getSuccessResponse();
     }
     
@@ -963,11 +981,12 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate phone format
         // TODO: Validate repeat
+        // TODO: Send SMS
         if(index < 0 || index > this.config.phones.owner.length) {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_PHONE_POSITION);
         }
         let phone = this.config.phones.owner.splice(index, 1);
-        this.emitter.emit(AntiTheftSystem.Events.OWNER_PHONE_DELETED, { phone: phone[0] });
+        this.emitter.emit(AntiTheftSystem.EVENTS.OWNER_PHONE_DELETED, { phone: phone[0] });
         return this.getSuccessResponse();
     }
 
@@ -982,7 +1001,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate email format
         this.config.emails.central = email;
-        this.emitter.emit(AntiTheftSystem.Events.CENTRAL_EMAIL_CHANGED, { email: email });
+        this.emitter.emit(AntiTheftSystem.EVENTS.CENTRAL_EMAIL_CHANGED, { email: email });
         return this.getSuccessResponse();
     }
     
@@ -991,7 +1010,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
         this.config.emails.central = '';
-        this.emitter.emit(AntiTheftSystem.Events.CENTRAL_EMAIL_CHANGED, { email: '' });
+        this.emitter.emit(AntiTheftSystem.EVENTS.CENTRAL_EMAIL_CHANGED, { email: '' });
         return this.getSuccessResponse();
     }
 
@@ -1006,7 +1025,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate email format
         this.config.emails.admin = email;
-        this.emitter.emit(AntiTheftSystem.Events.ADMIN_EMAIL_CHANGED, { email: email });
+        this.emitter.emit(AntiTheftSystem.EVENTS.ADMIN_EMAIL_CHANGED, { email: email });
         return this.getSuccessResponse();
     }
     
@@ -1016,7 +1035,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate email format
         this.config.emails.admin = '';
-        this.emitter.emit(AntiTheftSystem.Events.ADMIN_EMAIL_CHANGED, { email: '' });
+        this.emitter.emit(AntiTheftSystem.EVENTS.ADMIN_EMAIL_CHANGED, { email: '' });
         return this.getSuccessResponse();
     }
 
@@ -1037,8 +1056,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         // TODO: Validate email format
         // TODO: Validate repeat
         // TODO: Validate max 
+        // TODO: Send email notification
         this.config.emails.owner.push(email);
-        this.emitter.emit(AntiTheftSystem.Events.OWNER_EMAIL_ADDED, { email: email });
+        this.emitter.emit(AntiTheftSystem.EVENTS.OWNER_EMAIL_ADDED, { email: email });
         return this.getSuccessResponse();
     }
     
@@ -1053,11 +1073,12 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate email format
         // TODO: Validate repeat
+        // TODO: Send email notification
         if(index < 0 || index > this.config.emails.owner.length) {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_EMAIL_POSITION);
         }
         this.config.emails.owner[index] = email
-        this.emitter.emit(AntiTheftSystem.Events.OWNER_EMAIL_CHANGED, { email: email });
+        this.emitter.emit(AntiTheftSystem.EVENTS.OWNER_EMAIL_CHANGED, { email: email });
         return this.getSuccessResponse();
     }
     
@@ -1072,11 +1093,12 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate email format
         // TODO: Validate repeat
+        // TODO: Send email notification
         if(index < 0 || index > this.config.emails.owner.length) {
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_EMAIL_POSITION);
         }
         let email = this.config.emails.owner.splice(index, 1);
-        this.emitter.emit(AntiTheftSystem.Events.OWNER_EMAIL_DELETED, { email: email[0] });
+        this.emitter.emit(AntiTheftSystem.EVENTS.OWNER_EMAIL_DELETED, { email: email[0] });
         return this.getSuccessResponse();
     }
 
@@ -1119,7 +1141,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         }
         // TODO: Validate repeat
         this.config.bypass.push(location);
-        this.emitter.emit(AntiTheftSystem.Events.BYPASS_CHANGE, { bypass: this.config.bypass });
+        this.emitter.emit(AntiTheftSystem.EVENTS.BYPASS_CHANGE, { bypass: this.config.bypass });
         return this.getSuccessResponse();
     }
     
@@ -1139,7 +1161,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         // TODO: Validate repeat
         locations.forEach((l: SensorLocation) => this.config.bypass.push(l));
         
-        this.emitter.emit(AntiTheftSystem.Events.BYPASS_CHANGE, { bypass: this.config.bypass });
+        this.emitter.emit(AntiTheftSystem.EVENTS.BYPASS_CHANGE, { bypass: this.config.bypass });
         return this.getSuccessResponse();
     }
 
@@ -1151,7 +1173,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
             return this.getErrorResponse(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
         this.config.bypass = [];
-        this.emitter.emit(AntiTheftSystem.Events.BYPASS_CHANGE, { bypass: this.config.bypass });
+        this.emitter.emit(AntiTheftSystem.EVENTS.BYPASS_CHANGE, { bypass: this.config.bypass });
         return this.getSuccessResponse();
     }
     
@@ -1162,26 +1184,16 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         if (code && (!this.validateCode(code, 'owner') && !this.validateCode(code, 'guest'))) { // TODO: code is optional? !code || !this.validateCode(code, 'owner') || !this.validateCode(code, 'guest')
             return this.getErrorResponse(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
-        this.config.state = AntiTheftSystemStates.LEAVING;
-        let systemState: SystemState = this.getSystemState();
+        let systemState: SystemState = this.setSystemState(AntiTheftSystemStates.LEAVING);
         let exitTime = this.config.exitTime * 1000;
-        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, 
-            { 
-                system: systemState, 
-                before: AntiTheftSystemStates.READY, 
-                after: AntiTheftSystemStates.LEAVING,
-                exitTime: exitTime
-            });
+        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
 
         mode = parseInt(mode.toString());
 
-        setTimeout(() => {
-            let currentState = this.config.state;
-            this.config.state = AntiTheftSystemStates.ARMED;
-            this.config.mode = mode;
-            let systemState: SystemState = this.getSystemState();
-            this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: currentState, after: AntiTheftSystemStates.ARMED });
-            this.emitter.emit(AntiTheftSystem.Events.SYSTEM_ARMED, { system: systemState, mode: mode });
+        this.leavingTimeout = setTimeout(() => {
+            let systemState: SystemState = this.setSystemState(AntiTheftSystemStates.ARMED, mode);
+            this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+            this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_ARMED, { system: systemState, mode: mode });
         }, exitTime);
         
         return this.getSuccessResponse();
@@ -1189,7 +1201,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
     
     public disarm(code: string): AntiTheftSystemResponse {
         let state = this.config.state;
-        if(state != AntiTheftSystemStates.ARMED && state != AntiTheftSystemStates.ENTERING && state != AntiTheftSystemStates.ALARMED) {
+        if(state != AntiTheftSystemStates.ARMED && state != AntiTheftSystemStates.ENTERING && state != AntiTheftSystemStates.ALARMED) { // TODO: Add LEAVING
             return this.getErrorResponse(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
         if (!this.validateCode(code, 'owner') && !this.validateCode(code, 'guest')) {
@@ -1201,11 +1213,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI {
         } else {
             newState = AntiTheftSystemStates.READY;
         }
-        this.config.state = newState;
-        this.config.mode = null;
-        let systemState: SystemState = this.getSystemState();
-        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_STATE_CHANGED, { system: systemState, before: state, after: newState });
-        this.emitter.emit(AntiTheftSystem.Events.SYSTEM_DISARMED);
+        let systemState: SystemState = this.setSystemState(newState);
+        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_STATE_CHANGED, { system: systemState });
+        this.emitter.emit(AntiTheftSystem.EVENTS.SYSTEM_DISARMED, { system: systemState });
         return this.getSuccessResponse();
     }
 }

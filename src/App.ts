@@ -39,13 +39,13 @@ class App {
     this.ats = AntiTheftSystem.getInstance();
 
     // Gsm channel start
-    GsmChannel.start(this.ats);
+    //GsmChannel.start(this.ats);
 
     // Web Sockets channel start
     WebSocketChannel.start(this.ats, this.server.server);
 
     // Bluetooth channel start
-    BluetoothChannel.start(this.ats);
+    //BluetoothChannel.start(this.ats);
 
   }
 
