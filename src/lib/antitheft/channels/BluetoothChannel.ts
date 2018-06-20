@@ -1,6 +1,6 @@
-import { AntiTheftSystemAPI } from "./AntiTheftSystemAPI";
-import { AntiTheftSystem } from "./AntiTheftSystem";
-import { SystemStateService } from "./ble/SystemStateService";
+import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
+import { AntiTheftSystem } from '../AntiTheftSystem';
+import { SystemStateService } from '../ble/SystemStateService';
 
 import * as bleno from 'bleno';
 

@@ -24,9 +24,9 @@ export class DisarmSystemCharacteristic extends Characteristic {
             let token = data.readUInt32BE(2).toString(); // TODO: leftpad ?
             let clientId = data.toString('ascii', 6);
 
-            let validation: AntiTheftSystemResponse = this.antiTheftSystemApi.validateClient(clientId, token);
+            let validation: AntiTheftSystemResponse<void> = this.antiTheftSystemApi.validateClient(clientId, token);
             if(validation.success) {
-                let response: AntiTheftSystemResponse = this.antiTheftSystemApi.disarm(code);
+                let response: AntiTheftSystemResponse<void> = this.antiTheftSystemApi.disarm(code);
                 if(response.success) {
                     callback(Characteristic.RESULT_SUCCESS);
                 } else {

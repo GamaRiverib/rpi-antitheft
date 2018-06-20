@@ -1,14 +1,16 @@
-import { GenericGsmClient, IGsmClient } from '../sim800/GsmClient';
-import { Modem, UrcInfo } from '../sim800/Modem';
-import { UnsolicitedResultCodes as URC } from '../sim800/at/UnsolicitedResultCodes';
+import { GenericGsmClient, IGsmClient } from '../../sim800/GsmClient';
+import { Modem, UrcInfo } from '../../sim800/Modem';
+import { UnsolicitedResultCodes as URC } from '../../sim800/at/UnsolicitedResultCodes';
+import { SmtpServerConfiguration, EmailAddress } from '../../sim800/Email';
+
+import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
+import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
+import { Sensor } from '../Sensor';
+import { SystemState } from '../SystemState';
+
+import { AntiTheftSystemEvents } from '../AntiTheftSystemEvents';
 
 import * as SerialPort from 'serialport';
-import { AntiTheftSystem } from './AntiTheftSystem';
-import { AntiTheftSystemAPI } from './AntiTheftSystemAPI';
-import { AntiTheftSystemResponse } from './AntiTheftSystemResponse';
-import { Sensor } from './Sensor';
-import { SystemState } from './SystemState';
-import { SmtpServerConfiguration, EmailAddress } from '../sim800/Email';
 
 const SERIAL_PORT = '/dev/serial0';
 
@@ -110,9 +112,9 @@ export class GsmChannel {
       setTimeout(this.alertSystemReboot.bind(this), 3000);
 
       // AntiTheftSystem Events
-      this.ats.on(AntiTheftSystem.EVENTS.SYSTEM_ALERT, this.handleSystemAlertEvent.bind(this));
-      this.ats.on(AntiTheftSystem.EVENTS.SYSTEM_ALARMED, this.handleSystemAlarmedEvent.bind(this));
-      this.ats.on(AntiTheftSystem.EVENTS.SYSTEM_DISARMED, this.handleSystemDisarmedEvent.bind(this));
+      this.ats.on(AntiTheftSystemEvents.SYSTEM_ALERT, this.handleSystemAlertEvent.bind(this));
+      this.ats.on(AntiTheftSystemEvents.SYSTEM_ALARMED, this.handleSystemAlarmedEvent.bind(this));
+      this.ats.on(AntiTheftSystemEvents.SYSTEM_DISARMED, this.handleSystemDisarmedEvent.bind(this));
 
       // GsmClient Events
       this.gsmClient.on(URC.CMTI.code, this.handleReceiveSmsEvent.bind(this));
@@ -121,19 +123,19 @@ export class GsmChannel {
     }
 
     private getOwnerPhones(): string[] {
-      let res: AntiTheftSystemResponse = this.ats.getOwnerPhones();
+      let res: AntiTheftSystemResponse<string[]> = this.ats.getOwnerPhones();
       let phones: string[] = []
-      if(res.data && res.data.phones) {
-        phones = res.data.phones as string[];
+      if(res.data && res.data) {
+        phones = res.data;
       }
       return phones;
     }
 
     private getOwnerEmails(): string[] {
-      let res: AntiTheftSystemResponse = this.ats.getOwnerEmails();
+      let res: AntiTheftSystemResponse<string[]> = this.ats.getOwnerEmails();
       let emails: string[] = [];
-      if(res.data && res.data.emails) {
-        emails = res.data.emails as string[];
+      if(res.data && res.data) {
+        emails = res.data;
       }
       return emails;
     }

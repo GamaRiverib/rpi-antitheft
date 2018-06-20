@@ -25,9 +25,9 @@ export class ArmSystemCharacteristic extends Characteristic {
             let token = data.readUInt32BE(3).toString(); // TODO: leftpad ?
             let clientId = data.toString('ascii', 7);
 
-            let validation: AntiTheftSystemResponse = this.antiTheftSystemApi.validateClient(clientId, token);
+            let validation: AntiTheftSystemResponse<void> = this.antiTheftSystemApi.validateClient(clientId, token);
             if(validation.success) {
-                let response: AntiTheftSystemResponse = this.antiTheftSystemApi.arm(mode, code);
+                let response: AntiTheftSystemResponse<void> = this.antiTheftSystemApi.arm(mode, code);
                 if(response.success) {
                     callback(Characteristic.RESULT_SUCCESS);
                 } else {

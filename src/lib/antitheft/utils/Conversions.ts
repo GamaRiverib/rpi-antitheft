@@ -1,5 +1,5 @@
 
-export class Utils {
+export class Conversions {
 
     public static readonly BASE_32_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUV'; //'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ABCDEFGHIJKLMNOPQRSTUVWXYZ234567
 
@@ -17,11 +17,11 @@ export class Utils {
 
         let i = 0;
         for(i = 0; i < b.length; i++) {
-            let v = Utils.BASE_32_CHARS.indexOf(b.charAt(i).toUpperCase());
-            bits += Utils.leftpad(v.toString(2), 5, '0');
+            let v = Conversions.BASE_32_CHARS.indexOf(b.charAt(i).toUpperCase());
+            bits += Conversions.leftpad(v.toString(2), 5, '0');
         }
         for(i = i % 8; i > 0; i--) {
-            bits += Utils.leftpad('0', 5, '0');
+            bits += Conversions.leftpad('0', 5, '0');
         }
         for(i = 0; i + 4 <= bits.length; i += 4) {
             let c = bits.substr(i, 4);

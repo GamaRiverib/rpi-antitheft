@@ -1,8 +1,8 @@
 import { AntiTheftSystemErrors } from "./AntiTheftSystemErrors";
 
-export interface AntiTheftSystemResponse {
+export interface AntiTheftSystemResponse<T> {
     success: boolean;
-    data?: any;
+    data?: T;
     message?: string;
     error?: AntiTheftSystemErrors
 }

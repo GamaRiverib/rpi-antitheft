@@ -1,6 +1,7 @@
 import { Characteristic, Descriptor } from 'bleno';
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
+import { SystemState } from '../SystemState';
 
 export class UptimeCharacteristic extends Characteristic {
 
@@ -18,9 +19,9 @@ export class UptimeCharacteristic extends Characteristic {
         if(offset) {
             callback(Characteristic.RESULT_ATTR_NOT_LONG, null);
         } else {
-            let response: AntiTheftSystemResponse = this.antiTheftSystemApi.getState();
-            if(response.success && response.data && response.data.system) {
-                let result = { uptime: response.data.system.uptime };
+            let response: AntiTheftSystemResponse<SystemState> = this.antiTheftSystemApi.getState();
+            if(response.success && response.data && response.data) {
+                let result = { uptime: response.data.uptime };
                 let data = new Buffer(JSON.stringify(result));
                 callback(Characteristic.RESULT_SUCCESS, data);
             } else {
