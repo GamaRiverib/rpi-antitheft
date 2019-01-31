@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, watch } from 'fs';
 import { Gpio } from 'onoff';
 
-import { Sensor, SensorLocation } from './Sensor';
+import { Sensor, SensorLocation, SensorGroup, SensorTypes } from './Sensor';
 import { AntiTheftSystemStates } from './AntiTheftSystemStates';
 import { AntiTheftSystemArmedModes } from './AntiTheftSystemArmedModes';
 import { AntiTheftSystemConfig } from './AntiTheftSystemConfig';
@@ -132,7 +132,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 state: AntiTheftSystemStates.DISARMED,
                 mode: null,
                 lookouted: 0,
-                sensors: [],
+                sensors: [{ location: { pin: 17 }, group: SensorGroup.INTERIOR, name: "PIR01", type: SensorTypes.PIR_MOTION }],
                 bypass: [],
                 codes: { owner: '81DC9BDB52D04DC20036DBD8313ED055', admin: '1E4D36177D71BBB3558E43AF9577D70E' }, // TODO: change defaults
                 entryTime: 10, // TODO: 60

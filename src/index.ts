@@ -2,7 +2,7 @@ import app from './App';
 
 const env = process.env.NODE_ENV || 'development';
 const port = process.env.NODE_PORT || 3000;
-const base_url = process.env.BASE_URL || '192.168.137.201';
+const base_url = process.env.BASE_URL || '192.168.137.61';
 
 app.listen(port, base_url, (err) => {
   if (err) {
