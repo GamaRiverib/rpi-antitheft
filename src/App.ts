@@ -48,6 +48,12 @@ class App {
     // Bluetooth channel start
     //BluetoothChannel.start(this.ats);
 
+    process.on('SIGINT', () => {
+      GsmChannel.stop();
+      WebSocketChannel.stop();
+      // BluetoothChannel.stop();
+    });
+
   }
 
   private configureMiddleware():void {

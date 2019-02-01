@@ -59,7 +59,8 @@ export class GsmChannel {
 
     private messagesTail: MessageInfo[] = [];
     private isSendingMessage: boolean = false;
-    private sendingMessageTimeout: number;
+    private sendingMessageTimeout: NodeJS.Timer;
+    private sendNextMessageIntervalId: NodeJS.Timer;
 
     public static start(ats: AntiTheftSystemAPI): void {
       if (GsmChannel.INSTANCE == null) {
@@ -68,14 +69,17 @@ export class GsmChannel {
     }
 
     public static stop(): void {
-      GsmChannel.INSTANCE.gsmClient.end()
-        .then(() => {
-          GsmChannel.INSTANCE = null;
-        })
-        .catch(err => {
-          console.log(err);
-          GsmChannel.INSTANCE = null;
+      if(GsmChannel.INSTANCE) {
+        clearInterval(GsmChannel.INSTANCE.sendNextMessageIntervalId);
+        GsmChannel.INSTANCE.gsmClient.end()
+          .then(() => {
+            GsmChannel.INSTANCE = null;
+          })
+          .catch(err => {
+            console.log(err);
+            GsmChannel.INSTANCE = null;
         });
+      }
     }
 
     private constructor(private ats: AntiTheftSystemAPI) {
@@ -87,7 +91,7 @@ export class GsmChannel {
       // TODO: asyn init ?
       setTimeout(this.startGsmClient.bind(this), 5000);
 
-      setInterval(this.sendNextMessage.bind(this), 5000);
+      this.sendNextMessageIntervalId = setInterval(this.sendNextMessage.bind(this), 5000);
     }
 
     private startGsmClient(): void {
@@ -125,7 +129,7 @@ export class GsmChannel {
     private getOwnerPhones(): string[] {
       let res: AntiTheftSystemResponse<string[]> = this.ats.getOwnerPhones();
       let phones: string[] = []
-      if(res.data && res.data) {
+      if(res.data) {
         phones = res.data;
       }
       return phones;
@@ -134,7 +138,7 @@ export class GsmChannel {
     private getOwnerEmails(): string[] {
       let res: AntiTheftSystemResponse<string[]> = this.ats.getOwnerEmails();
       let emails: string[] = [];
-      if(res.data && res.data) {
+      if(res.data) {
         emails = res.data;
       }
       return emails;

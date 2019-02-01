@@ -1,3 +1,4 @@
+import * as winston from 'winston';
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { Sensor, SensorLocation, SensorGroup } from '../Sensor';
 import { AntiTheftSystemArmedModes } from '../AntiTheftSystemArmedModes';
@@ -10,6 +11,8 @@ import { Logger } from '../utils/Logger';
 import { AntiTheftSystemConfig } from '../AntiTheftSystemConfig';
 
 export class SensorActivedEventHandler {
+
+    private logger: winston.Logger;
 
     private enteringHandler: (sensor: Sensor) => void;
 
@@ -24,6 +27,7 @@ export class SensorActivedEventHandler {
     private readyHandler: (sensor: Sensor) => void;
 
     constructor(private antiTheftSystem: AntiTheftSystemAPI) {
+        this.logger = Logger.getLogger('SensorEvents');
         this.antiTheftSystem.on(AntiTheftSystemEvents.SENSOR_ACTIVED, this.handle.bind(this));
     }
 
@@ -53,7 +57,7 @@ export class SensorActivedEventHandler {
             switch(state) {
                 case AntiTheftSystemStates.ALARMED:
                     // TODO: log activity
-                    Logger.log(`Sensor ${sensor.name} actived`);
+                    this.logger.info(`Sensor ${sensor.name} actived`);
                     break;
                 case AntiTheftSystemStates.ARMED:
                     // TODO: Bypass sensors/zones
@@ -72,7 +76,7 @@ export class SensorActivedEventHandler {
                                     this.alarmedHandler(sensor);
                                     break;
                                 default:
-                                    Logger.log('This message should not be displayed');
+                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
                             }
                             break;
                         case AntiTheftSystemArmedModes.CHIME:
@@ -84,7 +88,7 @@ export class SensorActivedEventHandler {
                                     this.chimeHandler(sensor);
                                     break;
                                 default:
-                                    Logger.log('This message should not be displayed');
+                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
                             }
                             break;
                         case AntiTheftSystemArmedModes.INSTANT:
@@ -100,7 +104,7 @@ export class SensorActivedEventHandler {
                                     this.alarmedHandler(sensor);
                                     break;
                                 default:
-                                    Logger.log('This message should not be displayed');
+                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
                             }
                             break;
                         case AntiTheftSystemArmedModes.MAXIMUM:
@@ -112,7 +116,7 @@ export class SensorActivedEventHandler {
                                     this.alarmedHandler(sensor);
                                     break;
                                 default:
-                                    Logger.log('This message should not be displayed');
+                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
                             }
                             break;
                         case AntiTheftSystemArmedModes.NIGHT_STAY:
@@ -124,13 +128,13 @@ export class SensorActivedEventHandler {
                                     this.alertHandler(sensor);
                                     break;
                                 case SensorGroup.INTERIOR:
-                                    Logger.log(`[IGNORE]: Sensor ${sensor.name} actived`);
+                                    this.logger.info(`[IGNORE]: Sensor ${sensor.name} actived`);
                                     break;
                                 case SensorGroup.PERIMETER:
                                     this.alarmedHandler(sensor);
                                     break;
                                 default:
-                                    Logger.log('This message should not be displayed');
+                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
                             }
                             break;
                         case AntiTheftSystemArmedModes.STAY:
@@ -142,24 +146,24 @@ export class SensorActivedEventHandler {
                                     this.alertHandler(sensor);
                                     break;
                                 case SensorGroup.INTERIOR:
-                                    Logger.log(`[IGNORE]: Sensor ${sensor.name} actived`);
+                                    this.logger.info(`[IGNORE]: Sensor ${sensor.name} actived`);
                                     break;
                                 case SensorGroup.PERIMETER:
                                     this.alarmedHandler(sensor);
                                     break;
                                 default:
-                                    Logger.log('This message should not be displayed');
+                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
                             }
                             break;
                         default:
-                            Logger.log('This message should not be displayed');
+                            this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
                     }
                     break;
                 case AntiTheftSystemStates.DISARMED:
                 case AntiTheftSystemStates.ENTERING:
                 case AntiTheftSystemStates.LEAVING:
                 case AntiTheftSystemStates.PROGRAMMING:
-                    Logger.log(`[IGNORE]: Sensor ${sensor.name} actived`);
+                    this.logger.info(`[IGNORE]: Sensor ${sensor.name} actived`);
                     break;
                 case AntiTheftSystemStates.READY:
                     let index = -1;
@@ -174,7 +178,7 @@ export class SensorActivedEventHandler {
                     }
                     break;
                 default:
-                    Logger.log('This message should not be displayed');
+                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
             }
         } else {
             let index = -1;

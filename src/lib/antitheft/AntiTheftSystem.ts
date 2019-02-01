@@ -1,3 +1,6 @@
+import * as winston from 'winston';
+import { Mailer, createTransport } from 'nodemailer';
+
 import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, watch } from 'fs';
@@ -16,7 +19,7 @@ import { Otp } from './utils/Otp';
 import { Logger } from './utils/Logger';
 
 import { AntiTheftSystemEvents, AntiTheftSystemEventData } from './AntiTheftSystemEvents';
-import { NotAuthorizedEventHandler } from './handlers/NotAuthorizedEventHandler';
+import { NotAuthorizedEventHandler, MaxUnAuthorizedIntentsEventData } from './handlers/NotAuthorizedEventHandler';
 import { SystemStateChangedEventHandler } from './handlers/SystemStateChangedEventHandler';
 import { EventsLogger } from './handlers/EventsLogger';
 import { AlertsEventHandler, MaxAlertsEventData } from './handlers/AlertsEventHandler';
@@ -29,6 +32,10 @@ const configFilePath = './Config.json';
 export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgrammingAPI {
 
     private static INSTANCE: AntiTheftSystem = null;
+
+    private logger: winston.Logger;
+
+    private mailer: Mailer;
 
     private otpProvider: Otp;
 
@@ -86,10 +93,12 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     ];
 
     private constructor() {
-        Logger.log('AntiTheftSystem starting...');
+        this.logger = Logger.getLogger('AntiTheftSystem');
+        this.logger.info('AntiTheftSystem starting...');
         this.otpProvider = new Otp();
         this.setupConfig();
         this.setupSystemEvents();
+        this.setupMailer();
     }
 
     private getSystemState(): SystemState {
@@ -130,7 +139,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     private loadConfigFromFile(): void {
         if(!existsSync(configFilePath)) {
             // Default values
-            Logger.log(`Configuration file: '${configFilePath}' not found.`);
+            this.logger.error(`Configuration file: '${configFilePath}' not found.`);
             this.config = {
                 sirenPin: 18, // TODO: ?
                 state: AntiTheftSystemStates.DISARMED,
@@ -161,10 +170,10 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                     'device10467306': '6GN2ITLOKDAEL2QN'
                 }
             };
-            Logger.log(`Saving configuration file with default values...`);
+            this.logger.info(`Saving configuration file with default values...`);
             writeFileSync(configFilePath, JSON.stringify(this.config));
         } else {
-            Logger.log(`Getting last values from configuration file: '${configFilePath}'...`)
+            this.logger.info(`Getting last values from configuration file: '${configFilePath}'...`)
             let data: Buffer = readFileSync(configFilePath);
             let lastConfig: AntiTheftSystemConfig = JSON.parse(data.toString());
             if (lastConfig.state == AntiTheftSystemStates.PROGRAMMING) {
@@ -174,24 +183,24 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         }
 
         watch(configFilePath, (event: string, fileName: string | Buffer) => {
-            Logger.log('Config file ', event, fileName);
+            this.logger.info(`Config file event "${event}"`, { data: fileName } );
             if (event == 'rename') {
                 // TODO: send alerts
                 // TODO: restore file
             }
         });
 
-        Logger.log(`AntiTheftSystem running with this configuration: `, this.config);
+        this.logger.info('AntiTheftSystem running with this configuration:', { data: this.config });
     }
 
     private setupSiren(): void {
         this.siren = new Gpio(this.config.sirenPin, 'out');
         process.on('SIGINT', () => this.siren.unexport());
-        Logger.log(`Siren configured in the GPIO ${this.config.sirenPin}...`);
+        this.logger.info(`Siren configured in the GPIO ${this.config.sirenPin}...`);
     }
 
     private setupSensors(): void {
-        Logger.log(`Configuring ${this.config.sensors.length} sensors...`);
+        this.logger.info(`Configuring ${this.config.sensors.length} sensors...`);
         let gpiosConfigured: Gpio[] = [];
         this.config.sensors.forEach((s: Sensor, i: number) => {
             if (!s.location.expander) {
@@ -206,11 +215,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 });
                 gpiosConfigured.push(gpio);
             } else {
-                Logger.log('\tExpander support not implemented yet'); // TODO: Support for expander
+                this.logger.error('\tExpander support not implemented yet'); // TODO: Support for expander
             }
         });
         process.on('SIGINT', () => gpiosConfigured.forEach((gpio: Gpio) => gpio.unexport()));
-        Logger.log(`${gpiosConfigured.length} sensors were configured in total`);
+        this.logger.info(`${gpiosConfigured.length} sensors were configured in total`);
     }
 
     private setupSystemEvents(): void {
@@ -218,17 +227,17 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
         // TODO: Intents by INVALID_STATE
 
-        let systemStateChangedEventHandler = new SystemStateChangedEventHandler(this);
+        new SystemStateChangedEventHandler(this);
         let sensorActivedEventHandler = new SensorActivedEventHandler(this);
         let notAuthorizedEventHandler = new NotAuthorizedEventHandler(this);
         let alertsEventHandler = new AlertsEventHandler(this);
-        let clientsEventHandler = new ClientsEventHandler(this);
-        let eventsLogger = new EventsLogger(this, AntiTheftSystem.EVENTS_TO_LOG);
+        new ClientsEventHandler(this);
+        new EventsLogger(this, AntiTheftSystem.EVENTS_TO_LOG);
 
         // TODO
 
         this.emitter.on(AntiTheftSystemEvents.SYSTEM_DISARMED, (data: AntiTheftSystemEventData) => {
-            Logger.log('SYSTEM_DISARMED');
+            this.logger.info('SYSTEM_DISARMED');
                 
             if(this.alarmedTimeout) {
                 clearTimeout(this.alarmedTimeout);
@@ -264,7 +273,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         });
 
         this.emitter.on(AntiTheftSystemEvents.SYSTEM_ALARMED, (data: AntiTheftSystemEventData) => {
-            Logger.log('SYSTEM_ALARMED', data);
+            this.logger.info('SYSTEM_ALARMED', { data: data });
     
             // TODO:
             this.saveConfig(); // TODO: <- ?
@@ -281,7 +290,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             this.emitter.emit(AntiTheftSystemEvents.SIREN_ACTIVED, { system: systemState });
     
             this.alarmedTimeout = setTimeout(() => {
-                Logger.log('The system has not been disarmed yet');
+                this.logger.info('The system has not been disarmed yet');
                 this.config.systemWasAlarmed = true;
                 clearInterval(this.alarmedStateTimer);
                 this.siren.writeSync(0);
@@ -289,6 +298,15 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 this.emitter.emit(AntiTheftSystemEvents.SIREN_SILENCED, { system: systemState });
                 this.emitter.emit(AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, { system: systemState });
             }, this.alarmedStateDuration);
+
+            this.sendEmail(
+                'SYSTEM ALARMED',
+                `
+                    <h3>El sistema está alarmado</h3>
+                    <div>
+                        ${JSON.stringify(data)}
+                    </div>
+            `);
         });
 
         sensorActivedEventHandler.onAlarmedEvent((sensor: Sensor) => {
@@ -298,13 +316,13 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         });
 
         sensorActivedEventHandler.onAlertEvent((sensor: Sensor) => {
-            Logger.log(`[ALERT]: Sensor ${sensor.name} actived`); // TODO: move
+            this.logger.info(`[ALERT]: Sensor ${sensor.name} actived`); // TODO: move
             let systemState: SystemState = this.getSystemState();
             this.emitter.emit(AntiTheftSystemEvents.SYSTEM_ALERT, { system: systemState });
         });
 
         sensorActivedEventHandler.onChimeEvent((sensor: Sensor) => {
-            Logger.log(`[CHIME]: Sensor ${sensor.name} actived`); // TODO
+            this.logger.info(`[CHIME]: Sensor ${sensor.name} actived`); // TODO
         });
 
         sensorActivedEventHandler.onDisarmEvent((sensor: Sensor) => {
@@ -333,12 +351,64 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
         alertsEventHandler.onMaxAlertsEvent((data: MaxAlertsEventData) => {
             console.log('Max Alerts Event', data);
+            this.sendEmail(
+                'Max unauthorized intents',
+                `
+                    <h3>Se ha alcanzado el número máximo de alertas</h3>
+                    <div>
+                        ${JSON.stringify(data.alerts)}
+                    </div>
+            `);
+        });
+
+        notAuthorizedEventHandler.onMaxUnauthorizedIntents((data: MaxUnAuthorizedIntentsEventData) => {
+            console.log('Max Unauthorized Intents Event', data);
+            this.sendEmail(
+                'Max unauthorized intents',
+                `
+                    <h3>Se ha alcanzado el número máximo de intentos no autorizados</h3>
+                    <div>
+                        ${JSON.stringify(data.intents)}
+                    </div>
+            `);
         });
 
     }
 
     private saveConfig(): void {
         writeFileSync(configFilePath, JSON.stringify(this.config));
+    }
+
+    private setupMailer(): void {
+        this.mailer = createTransport({
+            service: 'gmail',
+            auth: {
+                user: '',
+                pass: ''
+            }
+        });
+    }
+
+    private sendEmail(subject: string, content: string): void {
+        let receivers: string[] = this.config.emails.owner;
+        if(receivers.length == 0) {
+            this.logger.error('Not owner email configured');
+            return;
+        }
+        const mailOpts = {
+            from: '',
+            to: receivers,
+            subject: `[AntiTheftSystem] - ${subject}`,
+            html: content
+        };
+
+        this.mailer(mailOpts, (err, info) => {
+            if(err) {
+                this.logger.error('Send email fail', { data: mailOpts });
+                return;
+            }
+            this.logger.info('Send email successful', { data: info });
+        });
     }
 
     private getErrorResponse<T>(error: AntiTheftSystemErrors, message?: string, data?: T): AntiTheftSystemResponse<T> {
@@ -934,12 +1004,12 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     public addWebSocketChannel(channel: WebSocketChannel): void {
         channel.on(WebSocketChannleEvents.WEBSOCKET_CLIENT_STATE, (eventData: WebSocketChannelEventData<StateEventData>) => {
             if(!this.clientIsOnline(eventData.clientId)) {
-                Logger.log('[WARN] Client is already online', eventData);
+                this.logger.warn('[WARN] Client is already online', { data: eventData });
                 this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
                 this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
             }
             if(this.onlineClients[eventData.clientId] != eventData.webSocketClientId) {
-                Logger.log('[WARN] Bad web socket clientId', eventData);
+                this.logger.warn('[WARN] Bad web socket clientId', { data: eventData });
                 delete this.onlineClients[eventData.clientId];
                 this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, { clientId: eventData.clientId });
                 return;
@@ -961,7 +1031,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
         channel.on(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, (eventData: WebSocketChannelEventData<any>) => {
             if(this.clientIsOnline(eventData.clientId)) {
-                Logger.log('[WARN] Client is already auth', eventData);
+                this.logger.warn('[WARN] Client is already auth', { data: eventData });
             }
             this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
             this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);

@@ -44,9 +44,11 @@ export class BluetoothChannel {
 
     public static stop(): void {
         // TODO
-        bleno.stopAdvertising(function() {
-            bleno.disconnect();
-        });
-        BluetoothChannel.INSTANCE = null;
+        if(BluetoothChannel.INSTANCE) {
+            bleno.stopAdvertising(function() {
+                bleno.disconnect();
+            });
+            BluetoothChannel.INSTANCE = null;
+        }
     }
 }

@@ -61,7 +61,6 @@ export class WebSocketChannel {
         this.socket = io.listen(this.server);
     
         this.socket.on('connection', (ws: io.Socket) => {
-            // console.log(`[WebSocketChannel] Client ${ws.id} connected`);
             this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_CONNECTED, { webSocketClientId: ws.id });
             ws.emit('Time', Math.round(Date.now() / 1000.0));
             ws.on('is', (data: any) => {
@@ -70,8 +69,6 @@ export class WebSocketChannel {
                 let token: string = data.code ? data.code.toString() : '';
                 let result: AntiTheftSystemResponse<void> = ats.validateClient(clientId, token);
                 if(!result.success) {
-                    // TODO: emit unauthorized event and implement handler
-                    console.log(`Unauthorized client: ${clientId}`);
                     this.emitter.emit(WebSocketChannleEvents.NOT_AUTHORIZED_WEBSOCKET_CLIENT, { webSocketClientId: ws.id });
                     ws.disconnect(true);
                     return;
@@ -80,12 +77,11 @@ export class WebSocketChannel {
                 this.emitter.emit(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
 
                 // TODO: if display app send Events and Sensors
-                ws.emit('Events', this.eventsId); // .send(this.eventsId);
+                ws.emit('Events', this.eventsId);
                 ws.emit('Sensors', this.sensors);
                 
                 // if sensor client
                 ws.on('state', (data) => {
-                    // TODO: send state to ats
                     if(data.sensors && Array.isArray(data.sensors)) {
                         data.sensors.forEach((s: any) => {
                             if(s.pin >= 0 && s.value >= 0) {
@@ -103,11 +99,27 @@ export class WebSocketChannel {
                 ws.on('commnad', (data) => {
                     // TODO: send command to ats
                     console.log('command => ', data);
-                })
+                    let eventData: WebSocketChannelEventData<any> = {
+                        webSocketClientId: ws.id,
+                        clientId: clientId,
+                        data: data
+                    };
+                    this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_COMMAND, eventData);
+                });
+
+                ws.on('disconnect', () => {
+                    let eventData: WebSocketChannelEventData<any> = {
+                        webSocketClientId: ws.id,
+                        clientId: clientId,
+                        data: data
+                    };
+                    this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, eventData);
+                    // TODO: emit event and implement handler
+                });
             });
             setTimeout(() => ws.emit('Who', ''), 1000);
             ws.on('disconnect', () => {
-                console.log(`[WebSocketChannel] Client ${ws.id} disconnected`);
+                this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, { webSocketClientId: ws.id });
                 // TODO: emit event and implement handler
             });
         });
@@ -157,9 +169,11 @@ export class WebSocketChannel {
     }
 
     public static stop(): void {
-        WebSocketChannel.INSTANCE.socket.close(() => {
-            WebSocketChannel.INSTANCE = null;
-        });
+        if(WebSocketChannel.INSTANCE) {
+            WebSocketChannel.INSTANCE.socket.close(() => {
+                WebSocketChannel.INSTANCE = null;
+            });
+        }
     }
 
     private configureEventsId(): void {
