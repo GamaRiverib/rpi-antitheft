@@ -3,6 +3,7 @@ import { AntiTheftSystemArmedModes } from "./AntiTheftSystemArmedModes";
 import { AntiTheftSystemResponse } from "./AntiTheftSystemResponse";
 import { SystemState } from "./SystemState";
 import { AntiTheftSystemConfig } from "./AntiTheftSystemConfig";
+import { WebSocketChannel } from "./channels/WebSocketChannel";
 
 export interface AntiTheftSystemAPI {
     on(event: string, listener: (... args: any[]) => void): void;
@@ -16,6 +17,8 @@ export interface AntiTheftSystemAPI {
     arm(mode: AntiTheftSystemArmedModes, code?: string): AntiTheftSystemResponse<void>;
     disarm(code: string): AntiTheftSystemResponse<void>;
     validateClient(clientId: string, token: string): AntiTheftSystemResponse<void>;
+
+    addWebSocketChannel(channel: WebSocketChannel): void;
 }
 
 export interface AntiTheftSystemProgrammingAPI {

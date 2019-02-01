@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events';
+
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { Sensor } from '../Sensor';
 
@@ -11,9 +13,37 @@ import * as io from 'socket.io';
 import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
 import { AntiTheftSystemConfig } from '../AntiTheftSystemConfig';
 
+export class WebSocketChannleEvents {
+    public static readonly WEBSOCKET_CLIENT_CONNECTED = 'WEBSOCKET_CLIENT_CONNECTED';
+    public static readonly WEBSOCKET_CLIENT_DISCONNECTED = 'WEBSOCKET_CLIENT_DISCONNECTED';
+    public static readonly NOT_AUTHORIZED_WEBSOCKET_CLIENT = 'NOT_AUTHORIZED_WEBSOCKET_CLIENT';
+    public static readonly AUTHORIZED_WEBSOCKET_CLIENT = 'AUTHORIZED_WEBSOCKET_CLIENT';
+    public static readonly WEBSOCKET_CLIENT_STATE = 'WEBSOCKET_CLIENT_STATE';
+    public static readonly WEBSOCKET_CLIENT_COMMAND = 'WEBSOCKET_CLIENT_COMMAND';
+}
+
+export interface StateEventData {
+    sensor: {
+        location: {
+            mac: string;
+            pin: number;
+        }
+        value: number;
+    }
+}
+
+export interface WebSocketChannelEventData<T> {
+    webSocketClientId: string;
+    clientId: string;
+    data: T;
+}
+
+
 export class WebSocketChannel {
     
     private static INSTANCE: WebSocketChannel = null;
+
+    private emitter: EventEmitter;
 
     private socket: io.Server;
 
@@ -26,23 +56,29 @@ export class WebSocketChannel {
         this.configureEventsId();
         this.configureSensors();
 
+        this.emitter = new EventEmitter();
+
         this.socket = io.listen(this.server);
     
         this.socket.on('connection', (ws: io.Socket) => {
-            console.log(`[WebSocketChannel] Client ${ws.id} connected`);
+            // console.log(`[WebSocketChannel] Client ${ws.id} connected`);
+            this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_CONNECTED, { webSocketClientId: ws.id });
             ws.emit('Time', Math.round(Date.now() / 1000.0));
             ws.on('is', (data: any) => {
-                console.log(data); 
+                let mac: string = data.mac ? data.mac : '';
                 let clientId: string = data.clientId ? data.clientId.toString() : '';
                 let token: string = data.code ? data.code.toString() : '';
                 let result: AntiTheftSystemResponse<void> = ats.validateClient(clientId, token);
                 if(!result.success) {
                     // TODO: emit unauthorized event and implement handler
                     console.log(`Unauthorized client: ${clientId}`);
+                    this.emitter.emit(WebSocketChannleEvents.NOT_AUTHORIZED_WEBSOCKET_CLIENT, { webSocketClientId: ws.id });
                     ws.disconnect(true);
                     return;
                 }
-                
+                let authEventData: WebSocketChannelEventData<any> = { webSocketClientId: ws.id, clientId: clientId, data: { mac: mac } };
+                this.emitter.emit(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
+
                 // TODO: if display app send Events and Sensors
                 ws.emit('Events', this.eventsId); // .send(this.eventsId);
                 ws.emit('Sensors', this.sensors);
@@ -50,10 +86,26 @@ export class WebSocketChannel {
                 // if sensor client
                 ws.on('state', (data) => {
                     // TODO: send state to ats
-                    console.log(data);
+                    if(data.sensors && Array.isArray(data.sensors)) {
+                        data.sensors.forEach((s: any) => {
+                            if(s.pin >= 0 && s.value >= 0) {
+                                let eventData: WebSocketChannelEventData<StateEventData> = {
+                                    webSocketClientId: ws.id,
+                                    clientId: clientId,
+                                    data: { sensor: { location: { mac: mac, pin: s.pin }, value: s.value } }
+                                };
+                                this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_STATE, eventData);
+                            }
+                        });
+                    }
                 });
+
+                ws.on('commnad', (data) => {
+                    // TODO: send command to ats
+                    console.log('command => ', data);
+                })
             });
-            setTimeout(() => ws.emit('Who', ''), 2000);
+            setTimeout(() => ws.emit('Who', ''), 1000);
             ws.on('disconnect', () => {
                 console.log(`[WebSocketChannel] Client ${ws.id} disconnected`);
                 // TODO: emit event and implement handler
@@ -97,10 +149,11 @@ export class WebSocketChannel {
         });
     }
 
-    public static start(ats: AntiTheftSystemAPI, server: Server): void {
+    public static start(ats: AntiTheftSystemAPI, server: Server): WebSocketChannel {
         if (WebSocketChannel.INSTANCE == null) {
             WebSocketChannel.INSTANCE = new WebSocketChannel(ats, server);
         }
+        return WebSocketChannel.INSTANCE;
     }
 
     public static stop(): void {
@@ -142,6 +195,10 @@ export class WebSocketChannel {
             });
         }
         return payload;
+    }
+
+    public on(event: string, listener: (... args: any[]) => void): void {
+        this.emitter.addListener(event, listener);
     }
 
 }

@@ -43,6 +43,9 @@ export class AntiTheftSystemEvents {
     public static readonly SIREN_ACTIVED = 'SIREN_ACTIVED';
     public static readonly SIREN_SILENCED = 'SIREN_SILENCED';
 
+    public static readonly CLIENT_ONLINE = 'CLIENT_ONLINE';
+    public static readonly CLIENT_OFFLINE = 'CLIENT_OFFLINE';
+
     public static readonly MAX_ALERTS = 'MAX_ALERTS';
     public static readonly MAX_UNAUTHORIZED_INTENTS = 'MAX_UNAUTHORIZED_INTENTS';
 

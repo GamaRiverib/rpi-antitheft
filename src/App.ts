@@ -42,7 +42,8 @@ class App {
     //GsmChannel.start(this.ats);
 
     // Web Sockets channel start
-    WebSocketChannel.start(this.ats, this.server.server);
+    let wsChannel: WebSocketChannel = WebSocketChannel.start(this.ats, this.server.server);
+    this.ats.addWebSocketChannel(wsChannel);
 
     // Bluetooth channel start
     //BluetoothChannel.start(this.ats);

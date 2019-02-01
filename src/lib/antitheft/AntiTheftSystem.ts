@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, watch } from 'fs';
 import { Gpio } from 'onoff';
 
-import { Sensor, SensorLocation, SensorGroup, SensorTypes } from './Sensor';
+import { Sensor, SensorLocation, SensorGroup, SensorTypes, SensorWebSocket, SensorLocationWebSocket } from './Sensor';
 import { AntiTheftSystemStates } from './AntiTheftSystemStates';
 import { AntiTheftSystemArmedModes } from './AntiTheftSystemArmedModes';
 import { AntiTheftSystemConfig } from './AntiTheftSystemConfig';
@@ -21,6 +21,8 @@ import { SystemStateChangedEventHandler } from './handlers/SystemStateChangedEve
 import { EventsLogger } from './handlers/EventsLogger';
 import { AlertsEventHandler, MaxAlertsEventData } from './handlers/AlertsEventHandler';
 import { SensorActivedEventHandler } from './handlers/SensorActivedEventHandler';
+import { WebSocketChannel, WebSocketChannleEvents, WebSocketChannelEventData, StateEventData } from './channels/WebSocketChannel';
+import { ClientsEventHandler } from './handlers/ClientsEventHandler';
 
 const configFilePath = './Config.json';
 
@@ -55,6 +57,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     private activatedSensors: Sensor[] = [];
 
     private siren: Gpio;
+
+    private onlineClients: { [clientId: string]: string } = {};
 
     public static readonly SENSOR_GPIOS: [4, 17, 18, 27, 22, 23, 24, 25, 5, 6, 12, 13, 19, 16, 26, 20, 21];
 
@@ -133,6 +137,15 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 mode: null,
                 lookouted: 0,
                 sensors: [{ location: { pin: 17 }, group: SensorGroup.INTERIOR, name: "PIR01", type: SensorTypes.PIR_MOTION }],
+                sensorsWebSocket: [{ 
+                    location: {
+                        mac: "68:C6:3A:9F:B7:EA",
+                        pin: 4
+                    }, 
+                    type: SensorTypes.PIR_MOTION,
+                    name: "PIR02",
+                    group: SensorGroup.EXTERIOR
+                }],
                 bypass: [],
                 codes: { owner: '81DC9BDB52D04DC20036DBD8313ED055', admin: '1E4D36177D71BBB3558E43AF9577D70E' }, // TODO: change defaults
                 entryTime: 10, // TODO: 60
@@ -144,7 +157,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 systemWasAlarmed: false,
                 clients: { // TODO: change defaults
                     'galaxys6': '79STCF7GW7Q64TLD',
-                    'iphone6': 'CHARVSV676S39NQJ'
+                    'iphone6': 'CHARVSV676S39NQJ',
+                    'device10467306': '6GN2ITLOKDAEL2QN'
                 }
             };
             Logger.log(`Saving configuration file with default values...`);
@@ -195,9 +209,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 Logger.log('\tExpander support not implemented yet'); // TODO: Support for expander
             }
         });
-        process.on('SIGINT', () => {
-            gpiosConfigured.forEach((gpio: Gpio) => gpio.unexport());
-        });
+        process.on('SIGINT', () => gpiosConfigured.forEach((gpio: Gpio) => gpio.unexport()));
         Logger.log(`${gpiosConfigured.length} sensors were configured in total`);
     }
 
@@ -210,6 +222,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         let sensorActivedEventHandler = new SensorActivedEventHandler(this);
         let notAuthorizedEventHandler = new NotAuthorizedEventHandler(this);
         let alertsEventHandler = new AlertsEventHandler(this);
+        let clientsEventHandler = new ClientsEventHandler(this);
         let eventsLogger = new EventsLogger(this, AntiTheftSystem.EVENTS_TO_LOG);
 
         // TODO
@@ -410,6 +423,15 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         this.config.silentAlarm = value;
         this.emitter.emit(AntiTheftSystemEvents.SILENT_ALARM_CHANGED, { silentAlarm: this.config.silentAlarm });
         return this.getSuccessResponse<void>();
+    }
+
+    private clientIsOnline(clientId: string): boolean {
+        for(let id in this.onlineClients) {
+            if(id == clientId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static getInstance(): AntiTheftSystem {
@@ -907,5 +929,42 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         this.emitter.emit(AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, { system: systemState });
         this.emitter.emit(AntiTheftSystemEvents.SYSTEM_DISARMED, { system: systemState });
         return this.getSuccessResponse<void>();
+    }
+
+    public addWebSocketChannel(channel: WebSocketChannel): void {
+        channel.on(WebSocketChannleEvents.WEBSOCKET_CLIENT_STATE, (eventData: WebSocketChannelEventData<StateEventData>) => {
+            if(!this.clientIsOnline(eventData.clientId)) {
+                Logger.log('[WARN] Client is already online', eventData);
+                this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
+                this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
+            }
+            if(this.onlineClients[eventData.clientId] != eventData.webSocketClientId) {
+                Logger.log('[WARN] Bad web socket clientId', eventData);
+                delete this.onlineClients[eventData.clientId];
+                this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, { clientId: eventData.clientId });
+                return;
+            }
+            let state: StateEventData = eventData.data;
+            let location: SensorLocationWebSocket = SensorLocationWebSocket.getSensorLocationFromData(state.sensor.location);
+            this.config.sensorsWebSocket.forEach((sensor: SensorWebSocket) => {
+                if(SensorLocationWebSocket.equals(sensor.location, location)) {
+                    this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor: sensor, value: state.sensor.value });
+                }
+            });
+        });
+
+        channel.on(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, (eventData: WebSocketChannelEventData<any>) => {
+            delete this.onlineClients[eventData.clientId]
+            this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, { clientId: eventData.clientId });
+            console.log(this.onlineClients);
+        });
+
+        channel.on(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, (eventData: WebSocketChannelEventData<any>) => {
+            if(this.clientIsOnline(eventData.clientId)) {
+                Logger.log('[WARN] Client is already auth', eventData);
+            }
+            this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
+            this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
+        });
     }
 }
