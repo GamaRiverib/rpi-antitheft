@@ -359,6 +359,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                         ${JSON.stringify(data.alerts)}
                     </div>
             `);
+            let systemState: SystemState = this.getSystemState();
+            this.emitter.emit(AntiTheftSystemEvents.MAX_ALERTS, { system: systemState, extra: data });
         });
 
         notAuthorizedEventHandler.onMaxUnauthorizedIntents((data: MaxUnAuthorizedIntentsEventData) => {
@@ -371,6 +373,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                         ${JSON.stringify(data.intents)}
                     </div>
             `);
+            let systemState: SystemState = this.getSystemState();
+            this.emitter.emit(AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, { system: systemState, extra: data });
         });
 
     }
@@ -402,9 +406,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             html: content
         };
 
-        this.mailer(mailOpts, (err, info) => {
+        this.mailer.sendMail(mailOpts, (err, info) => {
             if(err) {
-                this.logger.error('Send email fail', { data: mailOpts });
+                this.logger.error('Send email fail', { data: { error: err } });
                 return;
             }
             this.logger.info('Send email successful', { data: info });
@@ -1003,38 +1007,44 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
     public addWebSocketChannel(channel: WebSocketChannel): void {
         channel.on(WebSocketChannleEvents.WEBSOCKET_CLIENT_STATE, (eventData: WebSocketChannelEventData<StateEventData>) => {
-            if(!this.clientIsOnline(eventData.clientId)) {
-                this.logger.warn('[WARN] Client is already online', { data: eventData });
-                this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
-                this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
-            }
-            if(this.onlineClients[eventData.clientId] != eventData.webSocketClientId) {
-                this.logger.warn('[WARN] Bad web socket clientId', { data: eventData });
-                delete this.onlineClients[eventData.clientId];
-                this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, { clientId: eventData.clientId });
-                return;
-            }
-            let state: StateEventData = eventData.data;
-            let location: SensorLocationWebSocket = SensorLocationWebSocket.getSensorLocationFromData(state.sensor.location);
-            this.config.sensorsWebSocket.forEach((sensor: SensorWebSocket) => {
-                if(SensorLocationWebSocket.equals(sensor.location, location)) {
-                    this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor: sensor, value: state.sensor.value });
+            if(eventData.clientId) {
+                if(!this.clientIsOnline(eventData.clientId)) {
+                    this.logger.warn('[WARN] Client is already online', { data: eventData });
+                    this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
+                    this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
                 }
-            });
+                if(this.onlineClients[eventData.clientId] != eventData.webSocketClientId) {
+                    this.logger.warn('[WARN] Bad web socket clientId', { data: eventData });
+                    delete this.onlineClients[eventData.clientId];
+                    this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, { clientId: eventData.clientId });
+                    return;
+                }
+                let state: StateEventData = eventData.data;
+                let location: SensorLocationWebSocket = SensorLocationWebSocket.getSensorLocationFromData(state.sensor.location);
+                this.config.sensorsWebSocket.forEach((sensor: SensorWebSocket) => {
+                    if(SensorLocationWebSocket.equals(sensor.location, location)) {
+                        this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor: sensor, value: state.sensor.value });
+                    }
+                });
+            }
         });
 
         channel.on(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, (eventData: WebSocketChannelEventData<any>) => {
-            delete this.onlineClients[eventData.clientId]
-            this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, { clientId: eventData.clientId });
-            console.log(this.onlineClients);
+            if(eventData.clientId) {
+                delete this.onlineClients[eventData.clientId]
+                this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, { clientId: eventData.clientId });
+                console.log(this.onlineClients);
+            }
         });
 
         channel.on(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, (eventData: WebSocketChannelEventData<any>) => {
-            if(this.clientIsOnline(eventData.clientId)) {
-                this.logger.warn('[WARN] Client is already auth', { data: eventData });
+            if(eventData.clientId) {
+                if(this.clientIsOnline(eventData.clientId)) {
+                    this.logger.warn('[WARN] Client is already auth', { data: eventData });
+                }
+                this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
+                this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
             }
-            this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
-            this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
         });
     }
 }

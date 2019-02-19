@@ -39,7 +39,7 @@ class App {
     this.ats = AntiTheftSystem.getInstance();
 
     // Gsm channel start
-    //GsmChannel.start(this.ats);
+    // GsmChannel.start(this.ats);
 
     // Web Sockets channel start
     let wsChannel: WebSocketChannel = WebSocketChannel.start(this.ats, this.server.server);
@@ -49,7 +49,7 @@ class App {
     //BluetoothChannel.start(this.ats);
 
     process.on('SIGINT', () => {
-      GsmChannel.stop();
+      // GsmChannel.stop();
       WebSocketChannel.stop();
       // BluetoothChannel.stop();
     });

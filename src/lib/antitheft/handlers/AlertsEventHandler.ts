@@ -10,7 +10,7 @@ export class AlertsEventHandler {
 
     private emitter: EventEmitter;
 
-    private maxAlertsCount = 5;
+    private maxAlertsCount = 3;
 
     private windowAlertsLength = 60000; // 1 min = 60, 000 ms
     
@@ -18,7 +18,7 @@ export class AlertsEventHandler {
 
     constructor(private antiTheftSystem: AntiTheftSystemAPI) {
         this.emitter = new EventEmitter();
-        this.antiTheftSystem.on(AntiTheftSystemEvents.SYSTEM_ALERT, this.handle);
+        this.antiTheftSystem.on(AntiTheftSystemEvents.SYSTEM_ALERT, this.handle.bind(this));
     }
 
     private handle(data: AntiTheftSystemEventData): void {
@@ -34,6 +34,7 @@ export class AlertsEventHandler {
         if (this.alerts.length > this.maxAlertsCount) {
             let eventData: MaxAlertsEventData = { alerts: this.alerts };
             this.emitter.emit(AntiTheftSystemEvents.MAX_ALERTS, eventData);
+            this.alerts = [];
         }
     }
 

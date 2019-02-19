@@ -106,12 +106,14 @@ export class GsmChannel {
               .then(this.startGsmClient.bind(self))
               .catch(err => console.log(err));
           } else {
-            setTimeout(this.startGsmClient.bind(self), 5000);
+            setTimeout(this.startGsmClient.bind(self), 30000);
           }
       });
     }
     
     private configureGsmClient(): void {
+
+      console.log('Configure GsmClient...');
 
       setTimeout(this.alertSystemReboot.bind(this), 3000);
 
