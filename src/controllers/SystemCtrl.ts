@@ -4,7 +4,6 @@ import { AntiTheftSystem } from '../lib/antitheft/AntiTheftSystem';
 import { AntiTheftSystemAPI } from '../lib/antitheft/AntiTheftSystemAPI';
 import { AntiTheftSystemResponse } from '../lib/antitheft/AntiTheftSystemResponse';
 import { AntiTheftSystemErrors } from '../lib/antitheft/AntiTheftSystemErrors';
-import { SensorLocation, Sensor } from '../lib/antitheft/Sensor';
 import { SystemState } from '../lib/antitheft/SystemState';
 
 const antiTheftSystemAPI: AntiTheftSystemAPI = AntiTheftSystem.getInstance();
@@ -65,7 +64,15 @@ export class SystemController extends Controller {
         if (!req.body.location) {
             res.send(400);
         } else {
-            let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.bypassOne(req.body.location, req.body.code);
+            let location: any = req.body.location;
+            if(typeof location === 'string') {
+                try {
+                    location = JSON.parse(location);
+                } catch(err) {
+                    res.send(400, { error: err });
+                }
+            }
+            let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.bypassOne(location, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {

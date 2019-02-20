@@ -1,5 +1,5 @@
 import * as winston from 'winston';
-import { Mailer, createTransport } from 'nodemailer';
+import { Mailer, createTransport, createTestAccount, SMTPTransport } from 'nodemailer';
 
 import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
@@ -204,16 +204,23 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         let gpiosConfigured: Gpio[] = [];
         this.config.sensors.forEach((s: Sensor, i: number) => {
             if (!s.location.expander) {
-                let gpio = new Gpio(s.location.pin, 'in', 'both');
-                gpio.watch((err: Error, val: number) => {
-                    if(err) {
-                        console.log(err);
-                        // TODO: ??
-                        return;
-                    }
-                    this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor: s, value: val });
-                });
-                gpiosConfigured.push(gpio);
+                let gpio;
+                try {
+                    gpio = new Gpio(s.location.pin, 'in', 'both');
+                } catch(err) {
+                    console.log(err);
+                }
+                if(gpio) {
+                    gpio.watch((err: Error, val: number) => {
+                        if(err) {
+                            console.log(err);
+                            // TODO: ??
+                            return;
+                        }
+                        this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor: s, value: val });
+                    });
+                    gpiosConfigured.push(gpio);
+                }
             } else {
                 this.logger.error('\tExpander support not implemented yet'); // TODO: Support for expander
             }
@@ -268,6 +275,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     
                 this.config.systemWasAlarmed = false;
             }
+            // clear bypassed sensors
+            this.config.bypass = [];
     
             this.saveConfig();
         });
@@ -352,7 +361,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         alertsEventHandler.onMaxAlertsEvent((data: MaxAlertsEventData) => {
             console.log('Max Alerts Event', data);
             this.sendEmail(
-                'Max unauthorized intents',
+                'Max Alerts',
                 `
                     <h3>Se ha alcanzado el número máximo de alertas</h3>
                     <div>
@@ -385,7 +394,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
     private setupMailer(): void {
         this.mailer = createTransport({
-            service: 'gmail',
+            // service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 587,
             auth: {
                 user: '',
                 pass: ''
@@ -918,7 +929,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         if(this.config.state != AntiTheftSystemStates.READY && this.config.state != AntiTheftSystemStates.DISARMED) {
             return this.getErrorResponse<void>(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
-        if (!code || !this.validateCode(code, 'owner') || !this.validateCode(code, 'guest')) {
+        if (!code || (!this.validateCode(code, 'owner') && !this.validateCode(code, 'guest'))) {
+            console.log('Unauthorized', code);
             return this.getErrorResponse<void>(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
         let index: number = this.getSensorIndexByLocation(location);
@@ -935,7 +947,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         if(this.config.state != AntiTheftSystemStates.READY && this.config.state != AntiTheftSystemStates.DISARMED) {
             return this.getErrorResponse<void>(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
-        if (!code || !this.validateCode(code, 'owner') || !this.validateCode(code, 'guest')) {
+        if (!code || (!this.validateCode(code, 'owner') && !this.validateCode(code, 'guest'))) {
             return this.getErrorResponse<void>(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
         locations.forEach((location: SensorLocation, i: number) => {

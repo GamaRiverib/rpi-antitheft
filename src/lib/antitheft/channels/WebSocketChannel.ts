@@ -163,18 +163,22 @@ export class WebSocketChannel {
                 this.socket.emit(event, payload);
             }
         });
+        this.ats.on(AntiTheftSystemEvents.BYPASS_CHANGE, (data: any) => {
+            let event = this.eventsId[AntiTheftSystemEvents.BYPASS_CHANGE];
+            if(event) {
+                this.socket.emit(event, data);
+            }
+        });
         this.ats.on(AntiTheftSystemEvents.MAX_ALERTS, (data: AntiTheftSystemEventData) => {
             let event = this.eventsId[AntiTheftSystemEvents.MAX_ALERTS];
             if(event) {
-                let payload: string = this.getPayload(data);
-                this.socket.emit(event, payload);
+                this.socket.emit(event, data);
             }
         });
         this.ats.on(AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, (data: AntiTheftSystemEventData) => {
             let event = this.eventsId[AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS];
             if(event) {
-                let payload: string = this.getPayload(data);
-                this.socket.emit(event, payload);
+                this.socket.emit(event, data);
             }
         });
     }
