@@ -18,7 +18,7 @@ export class NotAuthorizedEventHandler {
 
     constructor(private antiTheftSystem: AntiTheftSystemAPI) {
         this.emitter = new EventEmitter();
-        this.antiTheftSystem.on(AntiTheftSystemEvents.NOT_AUTHORIZED, this.handle);
+        this.antiTheftSystem.on(AntiTheftSystemEvents.NOT_AUTHORIZED, this.handle.bind(this));
     }
 
     private handle(data: AntiTheftSystemEventData): void {
