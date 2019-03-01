@@ -1045,7 +1045,6 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             if(eventData.clientId) {
                 delete this.onlineClients[eventData.clientId]
                 this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, { clientId: eventData.clientId });
-                console.log(this.onlineClients);
             }
         });
 

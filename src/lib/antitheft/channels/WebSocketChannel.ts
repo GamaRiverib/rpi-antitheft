@@ -77,6 +77,7 @@ export class WebSocketChannel {
 
                 let authEventData: WebSocketChannelEventData<any> = { webSocketClientId: ws.id, clientId: clientId, data: { mac: mac } };
                 this.emitter.emit(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
+                this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_ONLINE], { clientId: clientId, mac: mac });
 
                 // TODO: if display app send Events and Sensors
                 ws.emit('Events', this.eventsId);
@@ -118,13 +119,13 @@ export class WebSocketChannel {
                         data: data
                     };
                     this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, eventData);
+                    this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_OFFLINE], { clientId: clientId, mac: mac });
                     // TODO: emit event and implement handler
                 });
             });
             setTimeout(() => ws.emit('Who', ''), 1000);
             ws.on('disconnect', () => {
                 this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, { webSocketClientId: ws.id, clientId: 'Unknown' });
-                // TODO: emit event and implement handler
             });
         });
 

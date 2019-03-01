@@ -61,7 +61,7 @@ export class SystemController extends Controller {
     }
 
     private bypassOne(req: Request, res: Response, next: Next): void {
-        if (!req.body.location) {
+        if (!req.body || !req.body.location) {
             res.send(400);
         } else {
             let location: any = req.body.location;
@@ -89,7 +89,7 @@ export class SystemController extends Controller {
     }
 
     private bypassAll(req: Request, res: Response, next: Next): void {
-        if (!req.body.locations) {
+        if (!req.body || !req.body.locations) {
             res.send(400);
         } else {
             let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.bypassAll(req.body.locations, req.body.code);
@@ -125,7 +125,7 @@ export class SystemController extends Controller {
     }
 
     private arm(req: Request, res: Response, next: Next): void {
-        if (!req.body.mode) {
+        if (!req.body || !req.body.mode) {
             res.send(400);
         } else {
             let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.arm(req.body.mode, req.body.code);
@@ -145,7 +145,7 @@ export class SystemController extends Controller {
     }
 
     private disarm(req: Request, res: Response, next: Next): void {
-        if (!req.body.code) {
+        if (!req.body || !req.body.code) {
             res.send(400);
         } else {
             let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.disarm(req.body.code);
