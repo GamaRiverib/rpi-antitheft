@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
-import { Sensor, SensorLocation, SensorWebSocket, SensorLocationWebSocket } from '../Sensor';
+import { Sensor, SensorLocation } from '../Sensor';
 
 import { AntiTheftSystemEvents, AntiTheftSystemEventData } from '../AntiTheftSystemEvents';
 
@@ -210,8 +210,8 @@ export class WebSocketChannel {
         let res: AntiTheftSystemResponse<AntiTheftSystemConfig> = this.ats.getConfig();
         if(res.data) {
             this.sensors = res.data.sensors;
-            if (res.data.sensorsWebSocket.length > 0) {
-                res.data.sensorsWebSocket.forEach((s: SensorWebSocket) => {
+            if (res.data.sensors.length > 0) {
+                res.data.sensors.forEach((s: Sensor) => {
                     this.sensors.push(s);
                 });
             }
@@ -237,9 +237,6 @@ export class WebSocketChannel {
             s.activedSensors.forEach((sensor: Sensor, i: number) => {
                 this.sensors.forEach((s: Sensor, i: number) => {
                     if(SensorLocation.equals(s.location, sensor.location)) {
-                        payload += Conversions.leftpad(i.toString(32).toUpperCase(), 2, '0');
-                        return;
-                    } else if(SensorLocationWebSocket.equals(s.location as SensorLocationWebSocket, sensor.location as SensorLocationWebSocket)) {
                         payload += Conversions.leftpad(i.toString(32).toUpperCase(), 2, '0');
                         return;
                     }

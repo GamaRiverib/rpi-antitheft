@@ -5,8 +5,6 @@ import { Controller } from './lib/Controller';
 import { AntiTheftSystem } from './lib/antitheft/AntiTheftSystem';
 import { AntiTheftSystemAPI } from './lib/antitheft/AntiTheftSystemAPI';
 import { WebSocketChannel } from './lib/antitheft/channels/WebSocketChannel';
-import { GsmChannel } from './lib/antitheft/channels/GsmChannel';
-import { BluetoothChannel } from './lib/antitheft/channels/BluetoothChannel';
 
 const ServerInfo = {
     name: 'rats-web-api',

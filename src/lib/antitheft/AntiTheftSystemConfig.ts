@@ -1,14 +1,12 @@
 import { AntiTheftSystemStates } from "./AntiTheftSystemStates";
 import { AntiTheftSystemArmedModes } from "./AntiTheftSystemArmedModes";
-import { Sensor, SensorLocation, SensorWebSocket } from "./Sensor";
+import { Sensor, SensorLocation } from "./Sensor";
 
 export interface AntiTheftSystemConfig {
-    sirenPin: number;
     state: AntiTheftSystemStates;
     mode?: AntiTheftSystemArmedModes;
     lookouted?: number;
     sensors: Sensor[];
-    sensorsWebSocket: SensorWebSocket[];
     bypass: SensorLocation[]; // Stay?
     codes: {
         guest?: string,

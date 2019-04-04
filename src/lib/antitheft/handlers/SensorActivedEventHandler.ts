@@ -1,4 +1,4 @@
-import * as winston from 'winston';
+import { Logger as winstonLogger } from 'winston';
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { Sensor, SensorLocation, SensorGroup } from '../Sensor';
 import { AntiTheftSystemArmedModes } from '../AntiTheftSystemArmedModes';
@@ -12,7 +12,7 @@ import { AntiTheftSystemConfig } from '../AntiTheftSystemConfig';
 
 export class SensorActivedEventHandler {
 
-    private logger: winston.Logger;
+    private logger: winstonLogger;
 
     private enteringHandler: (sensor: Sensor) => void;
 

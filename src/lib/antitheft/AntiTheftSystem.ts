@@ -1,12 +1,12 @@
-import * as winston from 'winston';
-import { Mailer, createTransport, createTestAccount, SMTPTransport } from 'nodemailer';
+import { Logger as winstonLogger } from 'winston';
+import { createTransport } from 'nodemailer';
+
 
 import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, watch } from 'fs';
-import { Gpio } from 'onoff';
 
-import { Sensor, SensorLocation, SensorGroup, SensorTypes, SensorWebSocket, SensorLocationWebSocket } from './Sensor';
+import { Sensor, SensorLocation, SensorGroup, SensorTypes } from './Sensor';
 import { AntiTheftSystemStates } from './AntiTheftSystemStates';
 import { AntiTheftSystemArmedModes } from './AntiTheftSystemArmedModes';
 import { AntiTheftSystemConfig } from './AntiTheftSystemConfig';
@@ -33,9 +33,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
     private static INSTANCE: AntiTheftSystem = null;
 
-    private logger: winston.Logger;
+    private logger: winstonLogger;
 
-    private mailer: Mailer;
+    private mailer: any;
 
     private otpProvider: Otp;
 
@@ -63,7 +63,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
     private activatedSensors: Sensor[] = [];
 
-    private siren: Gpio;
+    // private siren: Gpio;
 
     private onlineClients: { [clientId: string]: string } = {};
 
@@ -141,18 +141,16 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             // Default values
             this.logger.error(`Configuration file: '${configFilePath}' not found.`);
             this.config = {
-                sirenPin: 18, // TODO: ?
                 state: AntiTheftSystemStates.DISARMED,
                 mode: null,
                 lookouted: 0,
-                sensors: [{ location: { pin: 17 }, group: SensorGroup.INTERIOR, name: "PIR01", type: SensorTypes.PIR_MOTION }],
-                sensorsWebSocket: [{ 
+                sensors: [{ 
                     location: {
-                        mac: "68:C6:3A:9F:B7:EA",
-                        pin: 4
+                        mac: '68:C6:3A:80:98:68',
+                        pin: 16
                     }, 
                     type: SensorTypes.PIR_MOTION,
-                    name: "PIR02",
+                    name: "PIR01",
                     group: SensorGroup.EXTERIOR
                 }],
                 bypass: [],
@@ -165,9 +163,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 emails: { owner: [] },
                 systemWasAlarmed: false,
                 clients: { // TODO: change defaults
-                    'galaxys6': '79STCF7GW7Q64TLD',
-                    'iphone6': 'CHARVSV676S39NQJ',
-                    'device10467306': '6GN2ITLOKDAEL2QN'
+                    galaxys6: '79STCF7GW7Q64TLD',
+                    iphone6: 'CHARVSV676S39NQJ',
+                    device8427624: '6GN2ITLOKDAEL2QN'
                 }
             };
             this.logger.info(`Saving configuration file with default values...`);
@@ -194,13 +192,13 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     }
 
     private setupSiren(): void {
-        this.siren = new Gpio(this.config.sirenPin, 'out');
+        /*this.siren = new Gpio(this.config.sirenPin, 'out');
         process.on('SIGINT', () => this.siren.unexport());
-        this.logger.info(`Siren configured in the GPIO ${this.config.sirenPin}...`);
+        this.logger.info(`Siren configured in the GPIO ${this.config.sirenPin}...`);*/
     }
 
     private setupSensors(): void {
-        this.logger.info(`Configuring ${this.config.sensors.length} sensors...`);
+        /*this.logger.info(`Configuring ${this.config.sensors.length} sensors...`);
         let gpiosConfigured: Gpio[] = [];
         this.config.sensors.forEach((s: Sensor, i: number) => {
             if (!s.location.expander) {
@@ -226,7 +224,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             }
         });
         process.on('SIGINT', () => gpiosConfigured.forEach((gpio: Gpio) => gpio.unexport()));
-        this.logger.info(`${gpiosConfigured.length} sensors were configured in total`);
+        this.logger.info(`${gpiosConfigured.length} sensors were configured in total`);*/
     }
 
     private setupSystemEvents(): void {
@@ -259,18 +257,18 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 clearInterval(this.alarmedStateTimer);
             }
     
-            this.siren.writeSync(0);
+            // this.siren.writeSync(0);
             let systemState: SystemState = this.getSystemState();
             this.emitter.emit(AntiTheftSystemEvents.SIREN_SILENCED, { system: systemState });
     
             if(this.config.systemWasAlarmed) {
                 this.alarmedStateTimer = setInterval(() => {
-                    this.siren.writeSync(this.siren.readSync() ^ 1);
+                    // this.siren.writeSync(this.siren.readSync() ^ 1);
                 }, 200);
     
                 setTimeout(() => {
                     clearInterval(this.alarmedStateTimer);
-                    this.siren.writeSync(0);
+                    // this.siren.writeSync(0);
                 }, 1200);
     
                 this.config.systemWasAlarmed = false;
@@ -292,7 +290,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             }
     
             this.alarmedStateTimer = setInterval(() => {
-                this.siren.writeSync(this.siren.readSync() ^ 1);
+                // this.siren.writeSync(this.siren.readSync() ^ 1);
             }, 400);
     
             let systemState: SystemState = this.getSystemState();
@@ -302,7 +300,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 this.logger.info('The system has not been disarmed yet');
                 this.config.systemWasAlarmed = true;
                 clearInterval(this.alarmedStateTimer);
-                this.siren.writeSync(0);
+                // this.siren.writeSync(0);
                 let systemState = this.setSystemState(AntiTheftSystemStates.ARMED);
                 this.emitter.emit(AntiTheftSystemEvents.SIREN_SILENCED, { system: systemState });
                 this.emitter.emit(AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, { system: systemState });
@@ -1032,9 +1030,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                     return;
                 }
                 let state: StateEventData = eventData.data;
-                let location: SensorLocationWebSocket = SensorLocationWebSocket.getSensorLocationFromData(state.sensor.location);
-                this.config.sensorsWebSocket.forEach((sensor: SensorWebSocket) => {
-                    if(SensorLocationWebSocket.equals(sensor.location, location)) {
+                let location: SensorLocation = SensorLocation.getSensorLocationFromData(state.sensor.location);
+                this.config.sensors.forEach((sensor: Sensor) => {
+                    if(SensorLocation.equals(sensor.location, location)) {
                         this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor: sensor, value: state.sensor.value });
                     }
                 });
