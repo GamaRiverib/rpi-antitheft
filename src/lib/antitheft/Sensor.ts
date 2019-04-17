@@ -61,7 +61,7 @@ export class Sensor {
             return new Sensor(
                 location, 
                 data.type || SensorTypes.MAGNETIC_SWITCH, 
-                data.name || `SensorWebSocket ${this.INSTANCE_COUNTER++}`, 
+                data.name || `SensorWebSocket ${this.INSTANCE_COUNTER++}`,
                 data.group || SensorGroup.PERIMETER, 
                 data.chime || '');
         }

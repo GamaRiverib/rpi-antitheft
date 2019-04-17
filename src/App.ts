@@ -7,7 +7,7 @@ import { AntiTheftSystemAPI } from './lib/antitheft/AntiTheftSystemAPI';
 import { WebSocketChannel } from './lib/antitheft/channels/WebSocketChannel';
 
 const ServerInfo = {
-    name: 'rats-web-api',
+    name: 'ats-web-api',
     version: '0.1.0',
     baseUrl: {
         development: '/',

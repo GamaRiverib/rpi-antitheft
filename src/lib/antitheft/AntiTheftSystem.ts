@@ -43,8 +43,6 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
     private emitter: EventEmitter;
 
-    private lastStateChange: Date = null;
-
     private beforeState: AntiTheftSystemStates = null;
 
     private leftTime: number = -1;
@@ -67,7 +65,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
     private onlineClients: { [clientId: string]: string } = {};
 
-    public static readonly SENSOR_GPIOS: [4, 17, 18, 27, 22, 23, 24, 25, 5, 6, 12, 13, 19, 16, 26, 20, 21];
+    // public static readonly SENSOR_GPIOS: [4, 17, 18, 27, 22, 23, 24, 25, 5, 6, 12, 13, 19, 16, 26, 20, 21];
 
     private static readonly EVENTS_TO_LOG: string[] = [
         AntiTheftSystemEvents.SYSTEM_STATE_CHANGED,
@@ -150,7 +148,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                         pin: 16
                     }, 
                     type: SensorTypes.PIR_MOTION,
-                    name: "PIR01",
+                    name: 'PIR01',
                     group: SensorGroup.EXTERIOR
                 }],
                 bypass: [],
@@ -319,13 +317,13 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         sensorActivedEventHandler.onAlarmedEvent((sensor: Sensor) => {
             let systemState: SystemState = this.setSystemState(AntiTheftSystemStates.ALARMED);
             this.emitter.emit(AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, { system: systemState });
-            this.emitter.emit(AntiTheftSystemEvents.SYSTEM_ALARMED, { system: systemState, sensor: sensor });
+            this.emitter.emit(AntiTheftSystemEvents.SYSTEM_ALARMED, { system: systemState, sensor });
         });
 
         sensorActivedEventHandler.onAlertEvent((sensor: Sensor) => {
             this.logger.info(`[ALERT]: Sensor ${sensor.name} actived`); // TODO: move
             let systemState: SystemState = this.getSystemState();
-            this.emitter.emit(AntiTheftSystemEvents.SYSTEM_ALERT, { system: systemState });
+            this.emitter.emit(AntiTheftSystemEvents.SYSTEM_ALERT, { system: systemState, sensor });
         });
 
         sensorActivedEventHandler.onChimeEvent((sensor: Sensor) => {
@@ -358,6 +356,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
         alertsEventHandler.onMaxAlertsEvent((data: MaxAlertsEventData) => {
             console.log('Max Alerts Event', data);
+            // TODO: send push notification
             this.sendEmail(
                 'Max Alerts',
                 `
@@ -372,6 +371,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
         notAuthorizedEventHandler.onMaxUnauthorizedIntents((data: MaxUnAuthorizedIntentsEventData) => {
             console.log('Max Unauthorized Intents Event', data);
+            // TODO: send push notification
             this.sendEmail(
                 'Max unauthorized intents',
                 `

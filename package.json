@@ -1,12 +1,12 @@
 {
   "name": "rats",
   "version": "0.1.0",
-  "description": "AntiTheft System Raspberry Pi 3 Based using Node.JS that expose the web services interface with REST",
+  "description": "AntiTheft System using Node.JS that expose the web services interface with REST",
   "main": "dist/index.js",
   "private": true,
   "engines": {
-    "node": "8.9.4",
-    "npm": "5.6.0"
+    "node": "10.15.3",
+    "npm": "6.4.1"
   },
   "scripts": {
     "start": "node dist/index.js",
@@ -25,15 +25,15 @@
     "name": "José Gamaliel Rivera Ibarra",
     "email": "gama.rivera@gmail.com"
   },
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "bunyan": "1.8.12",
     "bunyan-winston-adapter": "0.2.0",
-    "jssha": "^2.3.1",
-    "nodemailer": "^5.1.1",
+    "jssha": "2.3.1",
+    "nodemailer": "5.1.1",
     "q": "1.5.1",
     "restify": "7.1.1",
-    "socket.io": "^2.1.0",
+    "socket.io": "2.1.0",
     "winston": "3.1.0",
     "winston-daily-rotate-file": "3.5.1"
   },
@@ -42,9 +42,9 @@
     "@types/jssha": "0.0.29",
     "@types/mocha": "5.2.0",
     "@types/node": "9.6.8",
-    "@types/nodemailer": "^4.6.7",
-    "@types/restify": "^5.0.8",
-    "@types/socket.io": "^1.4.33",
+    "@types/nodemailer": "4.6.7",
+    "@types/restify": "5.0.8",
+    "@types/socket.io": "1.4.33",
     "chai": "4.1.2",
     "chai-http": "4.0.0",
     "eslint": "4.19.1",

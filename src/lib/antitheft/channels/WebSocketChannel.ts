@@ -38,6 +38,15 @@ export interface WebSocketChannelEventData<T> {
     data: T;
 }
 
+export const ProtocolMesssages = {
+    Time: 'Time',
+    Events: 'Events',
+    Sensors: 'Sensors',
+    is: 'is',
+    Who: 'Who',
+    state: 'state',
+    command: 'command'
+};
 
 export class WebSocketChannel {
     
@@ -60,128 +69,31 @@ export class WebSocketChannel {
 
         this.socket = io.listen(this.server);
     
-        this.socket.on('connection', (ws: io.Socket) => {
-            this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_CONNECTED, { webSocketClientId: ws.id });
-            ws.emit('Time', Math.round(Date.now() / 1000.0));
-            ws.on('is', (data: any) => {
-                let mac: string = data.mac ? data.mac : '';
-                let clientId: string = data.clientId ? data.clientId.toString() : '';
-                let token: string = data.code ? data.code.toString() : '';
-                let result: AntiTheftSystemResponse<void> = ats.validateClient(clientId, token);
+        this.socket.on('connection', this.onConnectionEventHandler.bind(this));
 
-                if(!result.success) {
-                    this.emitter.emit(WebSocketChannleEvents.NOT_AUTHORIZED_WEBSOCKET_CLIENT, { webSocketClientId: ws.id });
-                    ws.disconnect(true);
-                    return;
-                }
+        this.ats.on(AntiTheftSystemEvents.SYSTEM_ALERT, (data: AntiTheftSystemEventData) =>
+            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_ALERT, data));
 
-                let authEventData: WebSocketChannelEventData<any> = { webSocketClientId: ws.id, clientId: clientId, data: { mac: mac } };
-                this.emitter.emit(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
-                this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_ONLINE], { clientId: clientId, mac: mac });
+        this.ats.on(AntiTheftSystemEvents.SYSTEM_ALARMED, (data: AntiTheftSystemEventData) =>
+            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_ALARMED, data));
+            
+        this.ats.on(AntiTheftSystemEvents.SYSTEM_ARMED, (data: AntiTheftSystemEventData) =>
+            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_ARMED, data));
+        
+        this.ats.on(AntiTheftSystemEvents.SYSTEM_DISARMED, (data: AntiTheftSystemEventData) =>
+            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_DISARMED, data));
+        
+        this.ats.on(AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, (data: AntiTheftSystemEventData) =>
+            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, data));
 
-                // TODO: if display app send Events and Sensors
-                ws.emit('Events', this.eventsId);
-                ws.emit('Sensors', this.sensors);
-                // let updateTimeInterval: NodeJS.Timer = setInterval(() => ws.emit('Time', Math.round(Date.now() / 1000.0)), 60000 * 30) // 30 minutes
-                
-                // if sensor client
-                ws.on('state', (data) => {
-                    if(data.sensors && Array.isArray(data.sensors)) {
-                        data.sensors.forEach((s: any) => {
-                            if(s.pin >= 0 && s.value >= 0) {
-                                let eventData: WebSocketChannelEventData<StateEventData> = {
-                                    webSocketClientId: ws.id,
-                                    clientId: clientId,
-                                    data: { sensor: { location: { mac: mac, pin: s.pin }, value: s.value } }
-                                };
-                                this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_STATE, eventData);
-                            }
-                        });
-                    }
-                });
+        this.ats.on(AntiTheftSystemEvents.BYPASS_CHANGE, (data: AntiTheftSystemEventData) =>
+            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.BYPASS_CHANGE, data));
 
-                ws.on('commnad', (data) => {
-                    // TODO: send command to ats
-                    console.log('command => ', data);
-                    let eventData: WebSocketChannelEventData<any> = {
-                        webSocketClientId: ws.id,
-                        clientId: clientId,
-                        data: data
-                    };
-                    this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_COMMAND, eventData);
-                });
+        this.ats.on(AntiTheftSystemEvents.MAX_ALERTS, (data: AntiTheftSystemEventData) =>
+            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.MAX_ALERTS, data));
 
-                ws.on('disconnect', () => {
-                    // clearInterval(updateTimeInterval);
-                    let eventData: WebSocketChannelEventData<any> = {
-                        webSocketClientId: ws.id,
-                        clientId: clientId,
-                        data: data
-                    };
-                    this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, eventData);
-                    this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_OFFLINE], { clientId: clientId, mac: mac });
-                    // TODO: emit event and implement handler
-                });
-            });
-            setTimeout(() => ws.emit('Who', ''), 1000);
-            ws.on('disconnect', () => {
-                this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, { webSocketClientId: ws.id, clientId: 'Unknown' });
-            });
-        });
-
-        this.ats.on(AntiTheftSystemEvents.SYSTEM_ALERT, (data: AntiTheftSystemEventData) => {
-            let event = this.eventsId[AntiTheftSystemEvents.SYSTEM_ALERT];
-            if(event) {
-                let payload: string = this.getPayload(data);
-                this.socket.emit(event, payload);
-            }
-        });
-        this.ats.on(AntiTheftSystemEvents.SYSTEM_ALARMED, (data: AntiTheftSystemEventData) => {
-            let event = this.eventsId[AntiTheftSystemEvents.SYSTEM_ALARMED];
-            if(event) {
-                let payload: string = this.getPayload(data);
-                this.socket.emit(event, payload);
-            }
-        });
-        this.ats.on(AntiTheftSystemEvents.SYSTEM_ARMED, (data: AntiTheftSystemEventData) => {
-            let event = this.eventsId[AntiTheftSystemEvents.SYSTEM_ARMED];
-            if(event) {
-                let payload: string = this.getPayload(data);
-                this.socket.emit(event, payload);
-            }
-        });
-        this.ats.on(AntiTheftSystemEvents.SYSTEM_DISARMED, (data: AntiTheftSystemEventData) => {
-            let event = this.eventsId[AntiTheftSystemEvents.SYSTEM_DISARMED];
-            if(event) {
-                let payload: string = this.getPayload(data);
-                this.socket.emit(event, payload);
-            }
-        });
-        this.ats.on(AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, (data: AntiTheftSystemEventData) => {
-            let event = this.eventsId[AntiTheftSystemEvents.SYSTEM_STATE_CHANGED];
-            if(event) {
-                let payload: string = this.getPayload(data);
-                this.socket.emit(event, payload);
-            }
-        });
-        this.ats.on(AntiTheftSystemEvents.BYPASS_CHANGE, (data: any) => {
-            let event = this.eventsId[AntiTheftSystemEvents.BYPASS_CHANGE];
-            if(event) {
-                this.socket.emit(event, data);
-            }
-        });
-        this.ats.on(AntiTheftSystemEvents.MAX_ALERTS, (data: AntiTheftSystemEventData) => {
-            let event = this.eventsId[AntiTheftSystemEvents.MAX_ALERTS];
-            if(event) {
-                this.socket.emit(event, data);
-            }
-        });
-        this.ats.on(AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, (data: AntiTheftSystemEventData) => {
-            let event = this.eventsId[AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS];
-            if(event) {
-                this.socket.emit(event, data);
-            }
-        });
+        this.ats.on(AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, (data: AntiTheftSystemEventData) =>
+            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, data));
     }
 
     public static start(ats: AntiTheftSystemAPI, server: Server): WebSocketChannel {
@@ -196,6 +108,88 @@ export class WebSocketChannel {
             WebSocketChannel.INSTANCE.socket.close(() => {
                 WebSocketChannel.INSTANCE = null;
             });
+        }
+    }
+
+    private onConnectionEventHandler(ws: io.Socket) {
+        this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_CONNECTED, { webSocketClientId: ws.id });
+        ws.emit(ProtocolMesssages.Time, Math.round(Date.now() / 1000.0));
+        ws.on(ProtocolMesssages.is, (data: any) => this.onIsEventHandler.call(this, ws, data));
+        setTimeout(() => ws.emit(ProtocolMesssages.Who, ''), 1000);
+        ws.on('disconnect', () => {
+            this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, { webSocketClientId: ws.id, clientId: 'Unknown' });
+            // TODO: test code
+            ws.emit(ProtocolMesssages.Time, Math.round(Date.now() / 1000.0));
+            setTimeout(() => ws.emit(ProtocolMesssages.Who, ''), 2000);
+        });
+    }
+
+    private onIsEventHandler(ws: io.Socket, data: any): void {
+        let mac: string = data.mac ? data.mac : '';
+        let clientId: string = data.clientId ? data.clientId.toString() : '';
+        let token: string = data.code ? data.code.toString() : '';
+        let result: AntiTheftSystemResponse<void> = this.ats.validateClient(clientId, token);
+
+        if(!result.success) {
+            this.emitter.emit(WebSocketChannleEvents.NOT_AUTHORIZED_WEBSOCKET_CLIENT, { webSocketClientId: ws.id });
+            ws.disconnect(true);
+            return;
+        }
+
+        let authEventData: WebSocketChannelEventData<any> = { webSocketClientId: ws.id, clientId: clientId, data: { mac: mac } };
+        this.emitter.emit(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
+        this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_ONLINE], { clientId: clientId, mac: mac });
+
+        // TODO: if display app send Events and Sensors
+        ws.emit(ProtocolMesssages.Events, this.eventsId);
+        ws.emit(ProtocolMesssages.Sensors, this.sensors);
+        // let updateTimeInterval: NodeJS.Timer = setInterval(() => ws.emit('Time', Math.round(Date.now() / 1000.0)), 60000 * 30) // 30 minutes
+        
+        // if sensor client
+        ws.on(ProtocolMesssages.state, (data) => {
+            if(data.sensors && Array.isArray(data.sensors)) {
+                data.sensors.forEach((s: any) => {
+                    if(s.pin >= 0 && s.value >= 0) {
+                        let eventData: WebSocketChannelEventData<StateEventData> = {
+                            webSocketClientId: ws.id,
+                            clientId: clientId,
+                            data: { sensor: { location: { mac: mac, pin: s.pin }, value: s.value } }
+                        };
+                        this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_STATE, eventData);
+                    }
+                });
+            }
+        });
+
+        ws.on(ProtocolMesssages.command, (data) => {
+            // TODO: send command to ats
+            console.log('command => ', data);
+            let eventData: WebSocketChannelEventData<any> = {
+                webSocketClientId: ws.id,
+                clientId: clientId,
+                data: data
+            };
+            this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_COMMAND, eventData);
+        });
+
+        ws.on('disconnect', () => {
+            // clearInterval(updateTimeInterval);
+            let eventData: WebSocketChannelEventData<any> = {
+                webSocketClientId: ws.id,
+                clientId: clientId,
+                data: data
+            };
+            this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, eventData);
+            this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_OFFLINE], { clientId: clientId, mac: mac });
+            // TODO: emit event and implement handler
+        });
+    }
+
+    private onSystemEventHandler(eventId: string, data: AntiTheftSystemEventData): void {
+        let event = this.eventsId[eventId];
+        if(event) {
+            let payload: string = this.getPayload(data);
+            this.socket.emit(event, payload);
         }
     }
 

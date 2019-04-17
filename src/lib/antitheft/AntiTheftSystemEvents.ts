@@ -5,6 +5,7 @@ export interface AntiTheftSystemEventData {
     emitter: any; // TODO: AntiTheftSystemAPI ??
     system: SystemState;
     extra: any;
+    sensor: Sensor;
 }
 
 export interface SensorActivedEventData {
