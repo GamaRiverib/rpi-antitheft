@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { Sensor, SensorLocation } from '../Sensor';
 
-import { AntiTheftSystemEvents, AntiTheftSystemEventData } from '../AntiTheftSystemEvents';
+import { AntiTheftSystemEvents, AntiTheftSystemEventData, SensorActivedEventData } from '../AntiTheftSystemEvents';
 
 import { Conversions } from '../utils/Conversions';
 
@@ -70,6 +70,17 @@ export class WebSocketChannel {
         this.socket = io.listen(this.server);
     
         this.socket.on('connection', this.onConnectionEventHandler.bind(this));
+
+        this.ats.on(AntiTheftSystemEvents.SENSOR_ACTIVED, (data: SensorActivedEventData) => {
+            let payload = { value: data.value };
+            this.sensors.forEach((s: Sensor, i: number) => {
+                if(SensorLocation.equals(s.location, data.sensor.location)) {
+                    payload['sensor'] = i;
+                    return;
+                }
+            });
+            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SENSOR_ACTIVED, payload);
+        });
 
         this.ats.on(AntiTheftSystemEvents.SYSTEM_ALERT, (data: AntiTheftSystemEventData) =>
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_ALERT, data));

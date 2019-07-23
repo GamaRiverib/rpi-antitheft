@@ -1,7 +1,6 @@
 import { Logger as winstonLogger } from 'winston';
 import { createTransport } from 'nodemailer';
 
-
 import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, watch } from 'fs';
@@ -28,6 +27,10 @@ import { WebSocketChannel, WebSocketChannleEvents, WebSocketChannelEventData, St
 import { ClientsEventHandler } from './handlers/ClientsEventHandler';
 
 const configFilePath = './Config.json';
+
+const emailUser = process.env.EMAIL_USER || '';
+const emailPass = process.env.EMAIL_PASS || '';
+const emailFrom = process.env.EMAIL_FROM || emailUser;
 
 export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgrammingAPI {
 
@@ -396,8 +399,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             host: 'smtp.gmail.com',
             port: 587,
             auth: {
-                user: '',
-                pass: ''
+                user: emailUser,
+                pass: emailPass
             }
         });
     }
@@ -409,7 +412,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             return;
         }
         const mailOpts = {
-            from: '',
+            from: emailFrom,
             to: receivers,
             subject: `[AntiTheftSystem] - ${subject}`,
             html: content
