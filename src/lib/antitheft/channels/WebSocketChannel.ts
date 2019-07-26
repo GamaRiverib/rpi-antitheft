@@ -12,6 +12,9 @@ import { Server } from 'http';
 import * as io from 'socket.io';
 import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
 import { AntiTheftSystemConfig } from '../AntiTheftSystemConfig';
+import { AntiTheftSystemErrors } from '../AntiTheftSystemErrors';
+import winston = require('winston');
+import { Logger } from '../utils/Logger';
 
 export class WebSocketChannleEvents {
     public static readonly WEBSOCKET_CLIENT_CONNECTED = 'WEBSOCKET_CLIENT_CONNECTED';
@@ -60,7 +63,11 @@ export class WebSocketChannel {
 
     private sensors: Sensor[] = [];
 
+    private logger: winston.Logger;
+
     private constructor(private ats: AntiTheftSystemAPI, private server: Server) {
+
+        this.logger = Logger.getLogger('WebSocketChannel');
 
         this.configureEventsId();
         this.configureSensors();
@@ -71,6 +78,27 @@ export class WebSocketChannel {
     
         this.socket.on('connection', this.onConnectionEventHandler.bind(this));
 
+        this.setupAtsEvents();
+
+        this.setupOwnEvents();
+    }
+
+    public static start(ats: AntiTheftSystemAPI, server: Server): WebSocketChannel {
+        if (WebSocketChannel.INSTANCE == null) {
+            WebSocketChannel.INSTANCE = new WebSocketChannel(ats, server);
+        }
+        return WebSocketChannel.INSTANCE;
+    }
+
+    public static stop(): void {
+        if(WebSocketChannel.INSTANCE) {
+            WebSocketChannel.INSTANCE.socket.close(() => {
+                WebSocketChannel.INSTANCE = null;
+            });
+        }
+    }
+
+    private setupAtsEvents(): void {
         this.ats.on(AntiTheftSystemEvents.SENSOR_ACTIVED, (data: SensorActivedEventData) => {
             let payload = { value: data.value };
             this.sensors.forEach((s: Sensor, i: number) => {
@@ -107,22 +135,21 @@ export class WebSocketChannel {
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, data));
     }
 
-    public static start(ats: AntiTheftSystemAPI, server: Server): WebSocketChannel {
-        if (WebSocketChannel.INSTANCE == null) {
-            WebSocketChannel.INSTANCE = new WebSocketChannel(ats, server);
-        }
-        return WebSocketChannel.INSTANCE;
+    private setupOwnEvents(): void {
+        let logger = this.logger;
+        let notAuthorizedClientList: { [clientId: string]: Date } = {};
+        this.emitter.on(WebSocketChannleEvents.NOT_AUTHORIZED_WEBSOCKET_CLIENT, (data: WebSocketChannelEventData<any>) => {
+            if (!notAuthorizedClientList[data.clientId]) {
+                notAuthorizedClientList[data.clientId] = new Date();
+                logger.error(`Not Authorized Client`, { data });
+            } else if (Date.now() - notAuthorizedClientList[data.clientId].getTime() > 60000 * 5) {
+                logger.error(`Not Authorized Client`, { data });
+                notAuthorizedClientList[data.clientId] = new Date();
+            }
+        });
     }
 
-    public static stop(): void {
-        if(WebSocketChannel.INSTANCE) {
-            WebSocketChannel.INSTANCE.socket.close(() => {
-                WebSocketChannel.INSTANCE = null;
-            });
-        }
-    }
-
-    private onConnectionEventHandler(ws: io.Socket) {
+    private onConnectionEventHandler(ws: io.Socket): void {
         this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_CONNECTED, { webSocketClientId: ws.id });
         ws.emit(ProtocolMesssages.Time, Math.round(Date.now() / 1000.0));
         ws.on(ProtocolMesssages.is, (data: any) => this.onIsEventHandler.call(this, ws, data));
@@ -141,13 +168,16 @@ export class WebSocketChannel {
         let token: string = data.code ? data.code.toString() : '';
         let result: AntiTheftSystemResponse<void> = this.ats.validateClient(clientId, token);
 
-        if(!result.success) {
-            this.emitter.emit(WebSocketChannleEvents.NOT_AUTHORIZED_WEBSOCKET_CLIENT, { webSocketClientId: ws.id });
+        let authEventData: WebSocketChannelEventData<any> = { webSocketClientId: ws.id, clientId: clientId, data: { mac: mac } };
+
+        if(!result.success) {         
+            if(result.error && result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
+                this.emitter.emit(WebSocketChannleEvents.NOT_AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
+            }
             ws.disconnect(true);
             return;
         }
 
-        let authEventData: WebSocketChannelEventData<any> = { webSocketClientId: ws.id, clientId: clientId, data: { mac: mac } };
         this.emitter.emit(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
         this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_ONLINE], { clientId: clientId, mac: mac });
 
