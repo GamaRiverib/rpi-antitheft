@@ -133,6 +133,15 @@ export class WebSocketChannel {
 
         this.ats.on(AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, (data: AntiTheftSystemEventData) =>
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, data));
+
+        this.ats.on(AntiTheftSystemEvents.SENSOR_REGISTERED, (data: AntiTheftSystemEventData) =>
+            this.updateSensors.call(this));
+
+        this.ats.on(AntiTheftSystemEvents.SENSOR_CHANGED, (data: AntiTheftSystemEventData) =>
+            this.updateSensors.call(this));
+
+        this.ats.on(AntiTheftSystemEvents.SENSOR_DELETED, (data: AntiTheftSystemEventData) =>
+            this.updateSensors.call(this));
     }
 
     private setupOwnEvents(): void {
@@ -241,11 +250,17 @@ export class WebSocketChannel {
         });
     }
 
+    private updateSensors(): void {
+        this.configureSensors();
+        this.socket.emit(ProtocolMesssages.Sensors, this.sensors);
+    }
+
     private configureSensors(): void {
         let res: AntiTheftSystemResponse<AntiTheftSystemConfig> = this.ats.getConfig();
         if(res.data) {
-            this.sensors = res.data.sensors;
+            // this.sensors = res.data.sensors;
             if (res.data.sensors.length > 0) {
+                this.sensors = [];
                 res.data.sensors.forEach((s: Sensor) => {
                     this.sensors.push(s);
                 });
