@@ -23,7 +23,8 @@ export class SystemController extends Controller {
 
         server.put(this.basePath + '/bypass/one', this.validateClient, this.bypassOne);
         server.put(this.basePath + '/bypass/all', this.validateClient, this.bypassAll);
-        server.del(this.basePath + '/bypass/all', this.validateClient, this.clearBypass);
+        server.put(this.basePath + '/unbypass/one', this.validateClient, this.clearBypassOne);
+        server.put(this.basePath + '/unbypass/all', this.validateClient, this.clearBypass);
 
         server.put(this.basePath + '/arm', this.validateClient, this.arm);
         server.put(this.basePath + '/disarm', this.validateClient, this.disarm);
@@ -93,6 +94,34 @@ export class SystemController extends Controller {
             res.send(400);
         } else {
             let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.bypassAll(req.body.locations, req.body.code);
+            if (result.success) {
+                res.send(204);
+            } else {
+                if (result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
+                    res.send(403);
+                } else if (result.error == AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
+                    res.send(409);
+                } else {
+                    res.send(400, { error: result.error });
+                }
+            }
+        }
+        next();
+    }
+
+    private clearBypassOne(req: Request, res: Response, next: Next): void {
+        if (!req.body || !req.body.location) {
+            res.send(400);
+        } else {
+            let location: any = req.body.location;
+            if(typeof location === 'string') {
+                try {
+                    location = JSON.parse(location);
+                } catch(err) {
+                    res.send(400, { error: err });
+                }
+            }
+            let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.clearBypassOne(location, req.body.code);
             if (result.success) {
                 res.send(204);
             } else {

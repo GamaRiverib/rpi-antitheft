@@ -125,14 +125,14 @@ export class WebSocketChannel {
         this.ats.on(AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, (data: AntiTheftSystemEventData) =>
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, data));
 
-        this.ats.on(AntiTheftSystemEvents.BYPASS_CHANGE, (data: AntiTheftSystemEventData) =>
-            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.BYPASS_CHANGE, data));
-
         this.ats.on(AntiTheftSystemEvents.MAX_ALERTS, (data: AntiTheftSystemEventData) =>
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.MAX_ALERTS, data));
 
         this.ats.on(AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, (data: AntiTheftSystemEventData) =>
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, data));
+
+        this.ats.on(AntiTheftSystemEvents.BYPASS_CHANGE, (data: AntiTheftSystemEventData) =>
+            this.updateSensors.call(this));
 
         this.ats.on(AntiTheftSystemEvents.SENSOR_REGISTERED, (data: AntiTheftSystemEventData) =>
             this.updateSensors.call(this));
@@ -258,11 +258,19 @@ export class WebSocketChannel {
     private configureSensors(): void {
         let res: AntiTheftSystemResponse<AntiTheftSystemConfig> = this.ats.getConfig();
         if(res.data) {
-            // this.sensors = res.data.sensors;
+            let bypass: SensorLocation[] = res.data.bypass || [];
             if (res.data.sensors.length > 0) {
                 this.sensors = [];
                 res.data.sensors.forEach((s: Sensor) => {
-                    this.sensors.push(s);
+                    let found: boolean = false;
+                    bypass.forEach((l: SensorLocation) => {
+                        if(SensorLocation.equals(l, s.location)) {
+                            found = true;
+                            return;
+                        }
+                    });
+                    let sensorData: any = Object.assign({}, s, { bypass: found });
+                    this.sensors.push(sensorData);
                 });
             }
         }

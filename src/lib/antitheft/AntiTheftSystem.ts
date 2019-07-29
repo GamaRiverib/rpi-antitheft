@@ -483,6 +483,17 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         return index;
     }
 
+    private getBypassByLocation(location: SensorLocation): number {
+        let index = -1;
+        this.config.bypass.forEach((s: SensorLocation, i: number) => {
+            if(SensorLocation.equals(s, location)) {
+                index = i;
+                return;
+            }
+        });
+        return index;
+    }
+
     private setBeep(value: boolean, code?: string): AntiTheftSystemResponse<void> {
         if(this.config.state != AntiTheftSystemStates.PROGRAMMING) {
             if(this.config.state != AntiTheftSystemStates.READY && this.config.state != AntiTheftSystemStates.DISARMED) {
@@ -931,16 +942,19 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             return this.getErrorResponse<void>(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
         }
         if (!code || (!this.validateCode(code, 'owner') && !this.validateCode(code, 'guest'))) {
-            console.log('Unauthorized', code);
             return this.getErrorResponse<void>(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
         let index: number = this.getSensorIndexByLocation(location);
         if(index < 0) {
             return this.getErrorResponse<void>(AntiTheftSystemErrors.INVALID_SENSOR_LOCATION);
         }
-        // TODO: Validate repeat
-        this.config.bypass.push(location);
-        this.emitter.emit(AntiTheftSystemEvents.BYPASS_CHANGE, { bypass: this.config.bypass });
+
+        index = this.getBypassByLocation(location);
+        if(index < 0) {
+            this.config.bypass.push(location);
+            this.emitter.emit(AntiTheftSystemEvents.BYPASS_CHANGE, { bypass: this.config.bypass });
+        }
+        
         return this.getSuccessResponse<void>();
     }
     
@@ -957,10 +971,19 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 return this.getErrorResponse<void>(AntiTheftSystemErrors.INVALID_SENSOR_LOCATION);
             }
         });
-        // TODO: Validate repeat
-        locations.forEach((l: SensorLocation) => this.config.bypass.push(l));
         
-        this.emitter.emit(AntiTheftSystemEvents.BYPASS_CHANGE, { bypass: this.config.bypass });
+        let notFoundList: SensorLocation[] = [];
+        locations.forEach((l: SensorLocation) => {
+            let index: number = this.getBypassByLocation(l);
+            if(index < 0) {
+                notFoundList.push(l);
+            }
+        });
+        if (notFoundList.length > 0) {
+            notFoundList.forEach((l: SensorLocation) => this.config.bypass.push(l));
+            this.emitter.emit(AntiTheftSystemEvents.BYPASS_CHANGE, { bypass: this.config.bypass });
+        }
+        
         return this.getSuccessResponse<void>();
     }
 
@@ -972,6 +995,29 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             return this.getErrorResponse<void>(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
         this.config.bypass = [];
+        this.emitter.emit(AntiTheftSystemEvents.BYPASS_CHANGE, { bypass: this.config.bypass });
+        return this.getSuccessResponse<void>();
+    }
+
+    public clearBypassOne(location: SensorLocation, code?: string): AntiTheftSystemResponse<void> {
+        if(this.config.state != AntiTheftSystemStates.READY && this.config.state != AntiTheftSystemStates.DISARMED) {
+            return this.getErrorResponse<void>(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
+        }
+        if(!code || (!this.validateCode(code, 'owner') && !this.validateCode(code, 'guest'))) {
+            return this.getErrorResponse<void>(AntiTheftSystemErrors.NOT_AUTHORIZED);
+        }
+        let index: number = this.getSensorIndexByLocation(location);
+        if(index < 0) {
+            return this.getErrorResponse<void>(AntiTheftSystemErrors.INVALID_SENSOR_LOCATION);
+        }
+
+        this.config.bypass.forEach((s: SensorLocation, i: number) => {
+            if(SensorLocation.equals(s, location)) {
+                index = i;
+                return;
+            }
+        });
+        this.config.bypass.splice(index, 1);
         this.emitter.emit(AntiTheftSystemEvents.BYPASS_CHANGE, { bypass: this.config.bypass });
         return this.getSuccessResponse<void>();
     }

@@ -14,6 +14,7 @@ export interface AntiTheftSystemAPI {
     bypassOne(location: SensorLocation, code?: string): AntiTheftSystemResponse<void>;
     bypassAll(locations: SensorLocation[], code?: string): AntiTheftSystemResponse<void>;
     clearBypass(code?: string): AntiTheftSystemResponse<void>;
+    clearBypassOne(location: SensorLocation, code?: string): AntiTheftSystemResponse<void>;
     arm(mode: AntiTheftSystemArmedModes, code?: string): AntiTheftSystemResponse<void>;
     disarm(code: string): AntiTheftSystemResponse<void>;
     validateClient(clientId: string, token: string): AntiTheftSystemResponse<void>;

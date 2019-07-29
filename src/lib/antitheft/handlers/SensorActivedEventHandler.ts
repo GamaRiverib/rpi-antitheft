@@ -40,7 +40,8 @@ export class SensorActivedEventHandler {
 
         let state: AntiTheftSystemStates = resState.data.state;
         let activatedSensors: Sensor[] = resState.data.activedSensors;
-        let config = resConfig.data;
+        let config: AntiTheftSystemConfig = resConfig.data;
+        let bypass: boolean = false;
 
         // TODO: 
         if (value == 1) {
@@ -54,109 +55,119 @@ export class SensorActivedEventHandler {
             if (index < 0) {
                 activatedSensors.push(sensor);
             }
+            config.bypass.forEach((location: SensorLocation, i: number) => {
+                if (SensorLocation.equals(location, sensor.location)) {
+                    bypass = true;
+                    return;
+                }
+            });
+
             switch(state) {
                 case AntiTheftSystemStates.ALARMED:
                     // TODO: log activity
                     this.logger.info(`Sensor ${sensor.name} actived`);
                     break;
                 case AntiTheftSystemStates.ARMED:
-                    // TODO: Bypass sensors/zones
-                    let mode: AntiTheftSystemArmedModes = config.mode ? parseInt(config.mode.toString()) : 0;
-                    switch(mode) {
-                        case AntiTheftSystemArmedModes.AWAY:
-                            switch(sensor.group) {
-                                case SensorGroup.ACCESS:
-                                    this.enteringHandler(sensor);
-                                    break;
-                                case SensorGroup.EXTERIOR:
-                                    this.alertHandler(sensor);
-                                    break;
-                                case SensorGroup.INTERIOR:
-                                case SensorGroup.PERIMETER:
-                                    this.alarmedHandler(sensor);
-                                    break;
-                                default:
-                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
-                            }
-                            break;
-                        case AntiTheftSystemArmedModes.CHIME:
-                            switch(sensor.group) {
-                                case SensorGroup.ACCESS:
-                                case SensorGroup.EXTERIOR:
-                                case SensorGroup.INTERIOR:
-                                case SensorGroup.PERIMETER:
-                                    this.chimeHandler(sensor);
-                                    break;
-                                default:
-                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
-                            }
-                            break;
-                        case AntiTheftSystemArmedModes.INSTANT:
-                            switch(sensor.group) {
-                                case SensorGroup.ACCESS:
-                                    this.alarmedHandler(sensor);
-                                    break;
-                                case SensorGroup.EXTERIOR:
-                                    this.alertHandler(sensor);
-                                    break;
-                                case SensorGroup.INTERIOR:
-                                case SensorGroup.PERIMETER:
-                                    this.alarmedHandler(sensor);
-                                    break;
-                                default:
-                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
-                            }
-                            break;
-                        case AntiTheftSystemArmedModes.MAXIMUM:
-                            switch(sensor.group) {
-                                case SensorGroup.ACCESS:
-                                case SensorGroup.EXTERIOR:
-                                case SensorGroup.INTERIOR:
-                                case SensorGroup.PERIMETER:
-                                    this.alarmedHandler(sensor);
-                                    break;
-                                default:
-                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
-                            }
-                            break;
-                        case AntiTheftSystemArmedModes.NIGHT_STAY:
-                            switch(sensor.group) {
-                                case SensorGroup.ACCESS:
-                                    this.alarmedHandler(sensor);
-                                    break;
-                                case SensorGroup.EXTERIOR:
-                                    this.alertHandler(sensor);
-                                    break;
-                                case SensorGroup.INTERIOR:
-                                    this.logger.info(`[IGNORE]: Sensor ${sensor.name} actived`);
-                                    break;
-                                case SensorGroup.PERIMETER:
-                                    this.alarmedHandler(sensor);
-                                    break;
-                                default:
-                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
-                            }
-                            break;
-                        case AntiTheftSystemArmedModes.STAY:
-                            switch(sensor.group) {
-                                case SensorGroup.ACCESS:
-                                    this.enteringHandler(sensor);
-                                    break;
-                                case SensorGroup.EXTERIOR:
-                                    this.alertHandler(sensor);
-                                    break;
-                                case SensorGroup.INTERIOR:
-                                    this.logger.info(`[IGNORE]: Sensor ${sensor.name} actived`);
-                                    break;
-                                case SensorGroup.PERIMETER:
-                                    this.alarmedHandler(sensor);
-                                    break;
-                                default:
-                                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
-                            }
-                            break;
-                        default:
-                            this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                    if(bypass) {
+                        this.logger.warn(`[IGNORE]: Sensor ${sensor.name} actived, but is in the bypass list`);
+                    } else {
+                        let mode: AntiTheftSystemArmedModes = config.mode ? parseInt(config.mode.toString()) : 0;
+                        switch(mode) {
+                            case AntiTheftSystemArmedModes.AWAY:
+                                switch(sensor.group) {
+                                    case SensorGroup.ACCESS:
+                                        this.enteringHandler(sensor);
+                                        break;
+                                    case SensorGroup.EXTERIOR:
+                                        this.alertHandler(sensor);
+                                        break;
+                                    case SensorGroup.INTERIOR:
+                                    case SensorGroup.PERIMETER:
+                                        this.alarmedHandler(sensor);
+                                        break;
+                                    default:
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                }
+                                break;
+                            case AntiTheftSystemArmedModes.CHIME:
+                                switch(sensor.group) {
+                                    case SensorGroup.ACCESS:
+                                    case SensorGroup.EXTERIOR:
+                                    case SensorGroup.INTERIOR:
+                                    case SensorGroup.PERIMETER:
+                                        this.chimeHandler(sensor);
+                                        break;
+                                    default:
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                }
+                                break;
+                            case AntiTheftSystemArmedModes.INSTANT:
+                                switch(sensor.group) {
+                                    case SensorGroup.ACCESS:
+                                        this.alarmedHandler(sensor);
+                                        break;
+                                    case SensorGroup.EXTERIOR:
+                                        this.alertHandler(sensor);
+                                        break;
+                                    case SensorGroup.INTERIOR:
+                                    case SensorGroup.PERIMETER:
+                                        this.alarmedHandler(sensor);
+                                        break;
+                                    default:
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                }
+                                break;
+                            case AntiTheftSystemArmedModes.MAXIMUM:
+                                switch(sensor.group) {
+                                    case SensorGroup.ACCESS:
+                                    case SensorGroup.EXTERIOR:
+                                    case SensorGroup.INTERIOR:
+                                    case SensorGroup.PERIMETER:
+                                        this.alarmedHandler(sensor);
+                                        break;
+                                    default:
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                }
+                                break;
+                            case AntiTheftSystemArmedModes.NIGHT_STAY:
+                                switch(sensor.group) {
+                                    case SensorGroup.ACCESS:
+                                        this.alarmedHandler(sensor);
+                                        break;
+                                    case SensorGroup.EXTERIOR:
+                                        this.alertHandler(sensor);
+                                        break;
+                                    case SensorGroup.INTERIOR:
+                                        this.logger.info(`[IGNORE]: Sensor ${sensor.name} actived`);
+                                        break;
+                                    case SensorGroup.PERIMETER:
+                                        this.alarmedHandler(sensor);
+                                        break;
+                                    default:
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                }
+                                break;
+                            case AntiTheftSystemArmedModes.STAY:
+                                switch(sensor.group) {
+                                    case SensorGroup.ACCESS:
+                                        this.enteringHandler(sensor);
+                                        break;
+                                    case SensorGroup.EXTERIOR:
+                                        this.alertHandler(sensor);
+                                        break;
+                                    case SensorGroup.INTERIOR:
+                                        this.logger.info(`[IGNORE]: Sensor ${sensor.name} actived`);
+                                        break;
+                                    case SensorGroup.PERIMETER:
+                                        this.alarmedHandler(sensor);
+                                        break;
+                                    default:
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                }
+                                break;
+                            default:
+                                this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                        }
                     }
                     break;
                 case AntiTheftSystemStates.DISARMED:
@@ -166,14 +177,9 @@ export class SensorActivedEventHandler {
                     this.logger.info(`[IGNORE]: Sensor ${sensor.name} actived`);
                     break;
                 case AntiTheftSystemStates.READY:
-                    let index = -1;
-                    config.bypass.forEach((location: SensorLocation, i: number) => {
-                        if (SensorLocation.equals(location, sensor.location)) {
-                            index = i;
-                            return;
-                        }
-                    });
-                    if (index < 0) {
+                    if(bypass) {
+                        this.logger.info(`[IGNORE]: Sensor ${sensor.name} actived, but is in the bypass list`);
+                    } else {
                         this.disarmedHandler(sensor);
                     }
                     break;
