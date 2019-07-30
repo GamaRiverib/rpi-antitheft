@@ -133,7 +133,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         }
         this.beforeState = this.config.state;
         this.config.state = newState;
-        this.config.mode = sensor ? this.config.mode : mode || null;
+        this.config.mode = Number.isInteger(mode) ? mode : null;
         this.leftTime = -1;
 
         switch(newState) {

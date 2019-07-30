@@ -5,6 +5,7 @@ import { Controller } from './lib/Controller';
 import { AntiTheftSystem } from './lib/antitheft/AntiTheftSystem';
 import { AntiTheftSystemAPI } from './lib/antitheft/AntiTheftSystemAPI';
 import { WebSocketChannel } from './lib/antitheft/channels/WebSocketChannel';
+import { MqttChannel } from './lib/antitheft/channels/MqttChannel';
 
 const ServerInfo = {
     name: 'ats-web-api',
@@ -43,12 +44,16 @@ class App {
     let wsChannel: WebSocketChannel = WebSocketChannel.start(this.ats, this.server.server);
     this.ats.addWebSocketChannel(wsChannel);
 
+    // MQTT channel start
+    MqttChannel.start(this.ats);
+
     // Bluetooth channel start
     //BluetoothChannel.start(this.ats);
 
     process.on('SIGINT', () => {
       // GsmChannel.stop();
       WebSocketChannel.stop();
+      MqttChannel.stop();
       // BluetoothChannel.stop();
     });
 
