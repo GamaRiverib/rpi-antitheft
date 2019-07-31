@@ -183,6 +183,8 @@ export class MqttChannel {
         this.logger.info('MQTT Channel connected to Broker', { data: { broker: MQTT_BROKER_URL, port: MQTT_BROKER_PORT } });
         if (this.mqttClient) {
             this.mqttClient.publish(`${MQTT_TOPIC}/LWT`, 'ONLINE');
+            this.mqttClient.publish(`${MQTT_TOPIC}/TIME`, (Math.round(Date.now() / 1000.0).toString()));
+            this.mqttClient.publish(`${MQTT_TOPIC}/SENSORS`, JSON.stringify(this.sensors), { retain: true, qos: 0 });
 
             let topics: string[] = this.getSubcribeTopics();
             this.mqttClient.subscribe(topics, { qos: 0 }, this.subscriptionsResultCb.bind(this));
