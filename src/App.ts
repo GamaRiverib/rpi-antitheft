@@ -6,6 +6,7 @@ import { AntiTheftSystem } from './lib/antitheft/AntiTheftSystem';
 import { AntiTheftSystemAPI } from './lib/antitheft/AntiTheftSystemAPI';
 import { WebSocketChannel } from './lib/antitheft/channels/WebSocketChannel';
 import { MqttChannel } from './lib/antitheft/channels/MqttChannel';
+import { CloudChannel } from './lib/antitheft/channels/CloudChannel';
 
 const ServerInfo = {
     name: 'ats-web-api',
@@ -47,6 +48,9 @@ class App {
     // MQTT channel start
     MqttChannel.start(this.ats);
 
+    // Cloud channel (Firebase)
+    CloudChannel.start(this.ats);
+
     // Bluetooth channel start
     //BluetoothChannel.start(this.ats);
 
@@ -71,7 +75,7 @@ class App {
     this.server.use(restify.plugins.fullResponse());
   }
 
-  private crossOrigin(req,res,next) {
+  private crossOrigin(req: Request, res: Response, next: Next) {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'POST,GET,PUT,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-type,Authorization');

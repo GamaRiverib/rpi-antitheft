@@ -14,6 +14,8 @@ const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtt://192.168.137.1';
 const MQTT_BROKER_PORT = process.env.MQTT_BROKER_PORT || 1883;
 const MQTT_CLIENT_ID = process.env.MQTT_CLIENT_ID || 'ats';
 const MQTT_TOPIC = process.env.MQTT_TOPIC || 'ats';
+const MQTT_USER = process.env.MQTT_USER || '';
+const MQTT_PASS = process.env.MQTT_PASS || '';
 const MQTT_CMND = 'cmnd';
 
 export class MqttChannel {
@@ -86,6 +88,8 @@ export class MqttChannel {
             clean: false,
             clientId: MQTT_CLIENT_ID,
             // protocol: "ws",
+            username: MQTT_USER,
+            password: MQTT_PASS,
             reconnectPeriod: 5 * 1000,
             will: {
                 payload: 'OFFLINE',
@@ -215,7 +219,7 @@ export class MqttChannel {
         const subTopic: string = topic.substr(MQTT_TOPIC.length + 1);
         if(subTopic.startsWith(MQTT_CMND)) {
             const command: string = subTopic.substr(MQTT_CMND.length + 1);
-            console.log('command', command);
+            this.logger.info('Recieve command', { data: { command, message: message.toString() } });
             if (command == 'STATE') {
                 const response: AntiTheftSystemResponse<SystemState> = this.ats.getState();
                 const state: SystemState = response.data;
@@ -226,7 +230,6 @@ export class MqttChannel {
             } else if (command == 'ARM') {
                 try {
                     const params = JSON.parse(message);
-                    console.log('ARM', params);
                     if (params.clientId && params.token) {
                         let result: AntiTheftSystemResponse<void> = this.ats.validateClient(params.clientId, params.token);
                         if(result.success) {
@@ -244,7 +247,6 @@ export class MqttChannel {
             } else if (command == 'DISARM') {
                 try {
                     const params = JSON.parse(message);
-                    console.log('DISARM', params);
                     if (params.clientId && params.token) {
                         let result: AntiTheftSystemResponse<void> = this.ats.validateClient(params.clientId, params.token);
                         if(result.success) {
@@ -262,7 +264,6 @@ export class MqttChannel {
             } else if (command == 'BYPASS') {
                 try {
                     const params = JSON.parse(message);
-                    console.log('BYPASS', params);
                     if (params.clientId && params.token) {
                         let result: AntiTheftSystemResponse<void> = this.ats.validateClient(params.clientId, params.token);
                         console.log('validateClient', result);
@@ -281,7 +282,6 @@ export class MqttChannel {
             } else if (command == 'CLEARBYPASSONE') {
                 try {
                     const params = JSON.parse(message);
-                    console.log('CLEARBYPASSONE', params);
                     if (params.clientId && params.token) {
                         let result: AntiTheftSystemResponse<void> = this.ats.validateClient(params.clientId, params.token);
                         if(result.success) {

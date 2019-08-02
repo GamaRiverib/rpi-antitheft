@@ -157,7 +157,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 this.emitter.emit(AntiTheftSystemEvents.SYSTEM_ARMED, { system: systemState });
                 break;
             case AntiTheftSystemStates.DISARMED:
-                this.emitter.emit(AntiTheftSystemEvents.SYSTEM_DISARMED, { system: systemState });
+                if (this.beforeState != AntiTheftSystemStates.READY) {
+                    this.emitter.emit(AntiTheftSystemEvents.SYSTEM_DISARMED, { system: systemState });
+                }
                 break;
         }
         return systemState;
@@ -395,8 +397,6 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     }
 
     private onMaxAlertsEventHandler(data: MaxAlertsEventData): void {
-        console.log('Max Alerts Event', data);
-        // TODO: send push notification
         this.sendEmail(
             'Max Alerts',
             `
@@ -407,6 +407,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         `);
         let systemState: SystemState = this.getSystemState();
         this.emitter.emit(AntiTheftSystemEvents.MAX_ALERTS, { system: systemState, extra: data });
+        this.logger.warn('Max Alerts Event', { data });
     }
 
     private onMaxUnauthorizedIntentsEventHandler(data: MaxUnAuthorizedIntentsEventData): void {
@@ -444,6 +445,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     }
 
     private setupMailer(): void {
+        if (!emailUser) {
+            this.logger.warn('Email account has not been provided');
+        }
         this.mailer = createTransport({
             // service: 'gmail',
             host: 'smtp.gmail.com',

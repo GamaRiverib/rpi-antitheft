@@ -29,6 +29,7 @@
   "dependencies": {
     "bunyan": "1.8.12",
     "bunyan-winston-adapter": "0.2.0",
+    "firebase-admin": "^8.3.0",
     "jssha": "2.3.1",
     "mqtt": "3.0.0",
     "nodemailer": "5.1.1",
