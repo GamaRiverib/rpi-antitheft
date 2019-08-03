@@ -14,6 +14,12 @@ export class ClientsEventHandler {
         this.logger = Logger.getLogger('ClientsEventHandler');
         this.antiTheftSystem.on(AntiTheftSystemEvents.CLIENT_ONLINE, this.clientOnlineHandler.bind(this));
         this.antiTheftSystem.on(AntiTheftSystemEvents.CLIENT_OFFLINE, this.clientOfflineHandler.bind(this));
+
+        process.on('SIGINT', () => {
+            for(let k in this.timers) {
+                clearTimeout(this.timers[k]);
+            }
+        });
     }
 
     private clientOnlineHandler(data: WebSocketChannelEventData<any>): void {

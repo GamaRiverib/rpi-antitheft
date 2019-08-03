@@ -59,7 +59,7 @@
     "nodemon": "^1.17.5",
     "supertest": "3.0.0",
     "tsc": "1.20150623.0",
-    "typescript": "2.8.3",
+    "typescript": "3.5.3",
     "typescript-eslint-parser": "15.0.0"
   }
 }

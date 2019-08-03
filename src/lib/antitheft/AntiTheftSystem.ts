@@ -26,7 +26,7 @@ import { SensorActivedEventHandler } from './handlers/SensorActivedEventHandler'
 import { WebSocketChannel, WebSocketChannleEvents, WebSocketChannelEventData, StateEventData } from './channels/WebSocketChannel';
 import { ClientsEventHandler } from './handlers/ClientsEventHandler';
 
-const configFilePath = './Config.json';
+const configFilePath = process.env.ATS_CONFIG_FILE || './Config.json';
 
 const emailUser = process.env.EMAIL_USER || '';
 const emailPass = process.env.EMAIL_PASS || '';
