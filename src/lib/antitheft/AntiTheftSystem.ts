@@ -1106,7 +1106,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         } else {
             newState = AntiTheftSystemStates.READY;
         }
-        this.setSystemState(newState);
+        const systemState: SystemState = this.setSystemState(newState);
+        this.emitter.emit(AntiTheftSystemEvents.SYSTEM_DISARMED, { system: systemState });
         return this.getSuccessResponse<void>();
     }
 
