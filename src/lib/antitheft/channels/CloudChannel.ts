@@ -80,17 +80,21 @@ export class CloudChannel {
         
     }
 
+    private getServerDateTimeString(): string {
+        const now = new Date();
+        return `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    }
+
     private sendNotificationAlarmed(data: AntiTheftSystemEventData): void {
         console.log('Send notification for Alarmed');
         const topic: string = 'ats';
         const payload: messaging.MessagingPayload = {
             data: {
-                activedSensors: JSON.stringify(data.system.activedSensors),
-                uptime: data.system.uptime.toString()
+                system: JSON.stringify(data.system)
             },
             notification: {
                 title: 'Antitheft System',
-                body: 'SYSTEM ALARMED',
+                body: `[${this.getServerDateTimeString()}] SYSTEM ALARMED`,
                 color: '#FF0000'
             }
         };
@@ -109,12 +113,11 @@ export class CloudChannel {
         const topic: string = 'ats';
         const payload: messaging.MessagingPayload = {
             data: {
-                activedSensors: JSON.stringify(data.system.activedSensors),
-                uptime: data.system.uptime.toString()
+                system: JSON.stringify(data.system)
             },
             notification: {
                 title: 'Antitheft System',
-                body: 'System Armed',
+                body: `[${this.getServerDateTimeString()}] System Armed`,
                 color: '#00FF00'
             }
         };
@@ -133,12 +136,11 @@ export class CloudChannel {
         const topic: string = 'ats';
         const payload: messaging.MessagingPayload = {
             data: {
-                activedSensors: JSON.stringify(data.system.activedSensors),
-                uptime: data.system.uptime.toString()
+                system: JSON.stringify(data.system)
             },
             notification: {
                 title: 'Antitheft System',
-                body: 'System Disarmed',
+                body: `[${this.getServerDateTimeString()}] System Disarmed`,
                 color: '#00FF00'
             }
         };
@@ -157,8 +159,7 @@ export class CloudChannel {
         const topic: string = 'ats';
         let payload: messaging.MessagingPayload = {
             data: {
-                activedSensors: JSON.stringify(data.system.activedSensors),
-                uptime: data.system.uptime.toString()
+                system: JSON.stringify(data.system)
             },
             notification: { title: 'Antitheft System' }
         };
@@ -166,7 +167,7 @@ export class CloudChannel {
         switch(state) {
             case AntiTheftSystemStates.LEAVING:
                 console.log('Send notification for Leaving');
-                payload.notification.body = 'Leaving';
+                payload.notification.body = `[${this.getServerDateTimeString()}] Leaving`;
                 payload.notification.color = '#0000FF';
                 this.messagingService.sendToTopic(topic, payload, options)
                     .then((resp: messaging.MessagingTopicResponse) => {
@@ -178,7 +179,7 @@ export class CloudChannel {
                 break;
             case AntiTheftSystemStates.ENTERING:
                 console.log('Send notification for Entering');
-                payload.notification.body = 'Entering';
+                payload.notification.body = `[${this.getServerDateTimeString()}] Entering`;
                 payload.notification.color = '#FFFF00';
                 this.messagingService.sendToTopic(topic, payload, options)
                     .then((resp: messaging.MessagingTopicResponse) => {
@@ -196,12 +197,11 @@ export class CloudChannel {
         const topic: string = 'ats';
         const payload: messaging.MessagingPayload = {
             data: {
-                activedSensors: JSON.stringify(data.system.activedSensors),
-                uptime: data.system.uptime.toString()
+                system: JSON.stringify(data.system)
             },
             notification: {
                 title: 'Antitheft System',
-                body: 'MAX ALERTS',
+                body: `[${this.getServerDateTimeString()}] WARNING MAX ALERTS`,
                 color: '#FFFF00'
             }
         };
@@ -220,12 +220,11 @@ export class CloudChannel {
         const topic: string = 'ats';
         const payload: messaging.MessagingPayload = {
             data: {
-                activedSensors: JSON.stringify(data.system.activedSensors),
-                uptime: data.system.uptime.toString()
+                system: JSON.stringify(data.system)
             },
             notification: {
                 title: 'Antitheft System',
-                body: 'Max unauthorized intents',
+                body: `[${this.getServerDateTimeString()}] Warning max unauthorized intents`,
                 color: '#FFFF00'
             }
         };
