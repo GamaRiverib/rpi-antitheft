@@ -13,6 +13,11 @@ export interface SensorActivedEventData {
     value: 1 | 0;
 }
 
+export interface ClientEventData {
+    clientId: string;
+    mac?: string;
+}
+
 export class AntiTheftSystemEvents {
 
     public static readonly NOT_AUTHORIZED = 'NOT_AUTHORIZED';

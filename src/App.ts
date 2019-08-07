@@ -54,12 +54,23 @@ class App {
     // Bluetooth channel start
     //BluetoothChannel.start(this.ats);
 
-    process.on('SIGINT', () => {
+    const onSigintHandler = (): void => {
       // GsmChannel.stop();
       WebSocketChannel.stop();
       MqttChannel.stop();
+      (this.ats as AntiTheftSystem).stop();
       // BluetoothChannel.stop();
-    });
+      process.exit();
+    };
+
+    if(process.platform == 'win32') {
+      const rl = require('readline').createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+      rl.on('SIGINT', () => process.emit('SIGINT'));
+    }
+    process.on('SIGINT', onSigintHandler);
 
   }
 

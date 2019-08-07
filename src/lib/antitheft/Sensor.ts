@@ -46,6 +46,7 @@ export class Sensor {
     name: string;
     group: SensorGroup;
     chime?: string;
+    online?: boolean;
 
     constructor(location: SensorLocation, type: SensorTypes, name: string, group: SensorGroup, chime?: string) {
         this.location = location;

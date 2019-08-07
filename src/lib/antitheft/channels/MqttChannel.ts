@@ -3,7 +3,7 @@ import winston = require('winston');
 import { connect, IClientOptions, Client, IClientSubscribeOptions, IClientPublishOptions } from 'mqtt';
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { Logger } from '../utils/Logger';
-import { AntiTheftSystemEvents, AntiTheftSystemEventData, SensorActivedEventData } from '../AntiTheftSystemEvents';
+import { AntiTheftSystemEvents, AntiTheftSystemEventData, SensorActivedEventData, ClientEventData } from '../AntiTheftSystemEvents';
 import { Conversions } from '../utils/Conversions';
 import { Sensor, SensorLocation } from '../Sensor';
 import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
@@ -58,7 +58,9 @@ export class MqttChannel {
 
     private updateSensors(): void {
         this.configureSensors();
-        this.mqttClient.publish(`${MQTT_TOPIC}/SENSORS`, JSON.stringify(this.sensors), { retain: true, qos: 0 });
+        if(this.mqttClient) {
+            this.mqttClient.publish(`${MQTT_TOPIC}/SENSORS`, JSON.stringify(this.sensors), { retain: true, qos: 0 });
+        }
     }
 
     private configureSensors(): void {
@@ -137,6 +139,18 @@ export class MqttChannel {
 
         this.ats.on(AntiTheftSystemEvents.SENSOR_DELETED, (data: AntiTheftSystemEventData) =>
             this.updateSensors.call(this));
+
+        this.ats.on(AntiTheftSystemEvents.CLIENT_ONLINE, (data: ClientEventData) => {
+            if(data.mac) {
+                this.updateSensors();
+            }
+        });
+
+        this.ats.on(AntiTheftSystemEvents.CLIENT_OFFLINE, (data: ClientEventData) =>  {
+            if(data.mac) {
+                this.updateSensors();
+            }
+        });
     }
 
     private setupOwnEvents(): void {
@@ -266,7 +280,6 @@ export class MqttChannel {
                     const params = JSON.parse(message);
                     if (params.clientId && params.token) {
                         let result: AntiTheftSystemResponse<void> = this.ats.validateClient(params.clientId, params.token);
-                        console.log('validateClient', result);
                         if(result.success) {
                             if(params.location) {
                                 result = this.ats.bypassOne(params.location, params.code);

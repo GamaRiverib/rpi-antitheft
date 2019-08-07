@@ -17,7 +17,7 @@ import { AntiTheftSystemResponse } from './AntiTheftSystemResponse';
 import { Otp } from './utils/Otp';
 import { Logger } from './utils/Logger';
 
-import { AntiTheftSystemEvents, AntiTheftSystemEventData } from './AntiTheftSystemEvents';
+import { AntiTheftSystemEvents, AntiTheftSystemEventData, ClientEventData } from './AntiTheftSystemEvents';
 import { NotAuthorizedEventHandler, MaxUnAuthorizedIntentsEventData } from './handlers/NotAuthorizedEventHandler';
 import { SystemStateChangedEventHandler } from './handlers/SystemStateChangedEventHandler';
 import { EventsLogger } from './handlers/EventsLogger';
@@ -70,6 +70,8 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
 
     private onlineClients: { [clientId: string]: string } = {};
 
+    private offlineClientsTimers: { [clientId: string]: NodeJS.Timer } = {};
+
     // public static readonly SENSOR_GPIOS: [4, 17, 18, 27, 22, 23, 24, 25, 5, 6, 12, 13, 19, 16, 26, 20, 21];
 
     private static readonly EVENTS_TO_LOG: string[] = [
@@ -102,13 +104,6 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         this.setupConfig();
         this.setupSystemEvents();
         this.setupMailer();
-
-        process.on('SIGINT', () => {
-            if(this.fileWatcher) {
-                this.fileWatcher.removeAllListeners();
-                this.fileWatcher.close();
-            }
-        });
     }
 
     // Get current system state
@@ -1117,7 +1112,15 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 if(!this.clientIsOnline(eventData.clientId)) {
                     this.logger.warn('[WARN] Client is already online', { data: eventData });
                     this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
-                    this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
+                    /*if(eventData.data.sensor && eventData.data.sensor.location) {
+                        this.config.sensors.forEach((s: Sensor) => {
+                            if (SensorLocation.equals(s.location, eventData.data.sensor.location)) {
+                                s.online = true;
+                                return;
+                            }
+                        });
+                    }
+                    this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);*/
                 }
                 if(this.onlineClients[eventData.clientId] != eventData.webSocketClientId) {
                     this.logger.warn('[WARN] Bad web socket clientId', { data: eventData });
@@ -1136,20 +1139,74 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         });
 
         channel.on(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, (eventData: WebSocketChannelEventData<any>) => {
-            if(eventData.clientId) {
-                delete this.onlineClients[eventData.clientId]
-                this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, { clientId: eventData.clientId });
+            const clientId: string = eventData.clientId;
+            if(clientId) {
+                if(eventData.data && eventData.data.mac) {
+                    const mac = eventData.data.mac;
+                    this.config.sensors.forEach((s: Sensor) => {
+                        if(s.location.mac == mac) {
+                            s.online = false;
+                        }
+                    });
+                }
+
+                if (this.offlineClientsTimers[clientId]) {
+                    this.offlineClientsTimers[clientId].unref();
+                    clearTimeout(this.offlineClientsTimers[clientId]);
+                }
+                this.offlineClientsTimers[clientId] = setTimeout(() => {
+                    delete this.onlineClients[eventData.clientId];
+                    const clientEventData: ClientEventData = {
+                        clientId: eventData.clientId,
+                        mac: eventData.data.mac ? eventData.data.mac : undefined
+                    };
+                    this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, clientEventData);
+                }, 25000);
             }
         });
 
         channel.on(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, (eventData: WebSocketChannelEventData<any>) => {
-            if(eventData.clientId) {
-                if(this.clientIsOnline(eventData.clientId)) {
+            const clientId: string = eventData.clientId;
+            if(clientId) {
+                if(this.clientIsOnline(clientId)) {
                     this.logger.warn('[WARN] Client is already auth', { data: eventData });
                 }
-                this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
-                this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
+                if(eventData.data && eventData.data.mac) {
+                    const mac = eventData.data.mac;
+                    this.config.sensors.forEach((s: Sensor) => {
+                        if (s.location.mac == mac) {
+                            s.online = true;
+                        }
+                    });
+                }
+                this.onlineClients[clientId] = eventData.webSocketClientId;
+
+                if (this.offlineClientsTimers[clientId]) {
+                    this.offlineClientsTimers[clientId].unref();
+                    clearTimeout(this.offlineClientsTimers[clientId]);
+                }
+
+                const clientEventData: ClientEventData = {
+                    clientId,
+                    mac: eventData.data.mac ? eventData.data.mac : undefined
+                };
+                this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, clientEventData);
             }
         });
+    }
+
+    stop(): void {
+        if(this.fileWatcher) {
+            console.log('fileWatcher remove all listeners...');
+            this.fileWatcher.removeAllListeners();
+            this.fileWatcher.close();
+            this.fileWatcher = null;
+        }
+        for(let k in this.offlineClientsTimers) {
+            console.log('unref ', k);
+            this.offlineClientsTimers[k].unref();
+            clearTimeout(this.offlineClientsTimers[k]);
+            this.offlineClientsTimers = null;
+        }
     }
 }

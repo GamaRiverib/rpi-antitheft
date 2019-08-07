@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { Sensor, SensorLocation } from '../Sensor';
 
-import { AntiTheftSystemEvents, AntiTheftSystemEventData, SensorActivedEventData } from '../AntiTheftSystemEvents';
+import { AntiTheftSystemEvents, AntiTheftSystemEventData, SensorActivedEventData, ClientEventData } from '../AntiTheftSystemEvents';
 
 import { Conversions } from '../utils/Conversions';
 
@@ -65,6 +65,8 @@ export class WebSocketChannel {
 
     private logger: winston.Logger;
 
+    private onlineClients: { wsId: string, clientId: string, mac: string}[] = [];
+
     private constructor(private ats: AntiTheftSystemAPI, private server: Server) {
 
         this.logger = Logger.getLogger('WebSocketChannel');
@@ -107,7 +109,7 @@ export class WebSocketChannel {
                     return;
                 }
             });
-            this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SENSOR_ACTIVED, payload);
+            this.socket.emit(this.eventsId[AntiTheftSystemEvents.SENSOR_ACTIVED], payload);
         });
 
         this.ats.on(AntiTheftSystemEvents.SYSTEM_ALERT, (data: AntiTheftSystemEventData) =>
@@ -142,6 +144,19 @@ export class WebSocketChannel {
 
         this.ats.on(AntiTheftSystemEvents.SENSOR_DELETED, (data: AntiTheftSystemEventData) =>
             this.updateSensors.call(this));
+
+        this.ats.on(AntiTheftSystemEvents.CLIENT_ONLINE, (data: ClientEventData) => {
+            if(data.mac) {
+                this.updateSensors();
+            }
+        });
+
+        this.ats.on(AntiTheftSystemEvents.CLIENT_OFFLINE, (data: ClientEventData) =>  {
+            if(data.mac) {
+                this.updateSensors();
+            }
+        });
+
     }
 
     private setupOwnEvents(): void {
@@ -163,12 +178,11 @@ export class WebSocketChannel {
         ws.emit(ProtocolMesssages.Time, Math.round(Date.now() / 1000.0));
         ws.on(ProtocolMesssages.is, (data: any) => this.onIsEventHandler.call(this, ws, data));
         setTimeout(() => ws.emit(ProtocolMesssages.Who, ''), 1000);
-        ws.on('disconnect', () => {
+        /* ws.on('disconnect', () => {
             this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, { webSocketClientId: ws.id, clientId: 'Unknown' });
-            // TODO: test code
             ws.emit(ProtocolMesssages.Time, Math.round(Date.now() / 1000.0));
             setTimeout(() => ws.emit(ProtocolMesssages.Who, ''), 2000);
-        });
+        }); */
     }
 
     private onIsEventHandler(ws: io.Socket, data: any): void {
@@ -177,7 +191,9 @@ export class WebSocketChannel {
         let token: string = data.code ? data.code.toString() : '';
         let result: AntiTheftSystemResponse<void> = this.ats.validateClient(clientId, token);
 
-        let authEventData: WebSocketChannelEventData<any> = { webSocketClientId: ws.id, clientId: clientId, data: { mac: mac } };
+        const authEventData: WebSocketChannelEventData<any> = { webSocketClientId: ws.id, clientId, data: { mac } };
+
+        this.onlineClients.push({ wsId: ws.id, clientId, mac });
 
         if(!result.success) {         
             if(result.error && result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
@@ -188,11 +204,10 @@ export class WebSocketChannel {
         }
 
         this.emitter.emit(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
-        this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_ONLINE], { clientId: clientId, mac: mac });
-
-        // TODO: if display app send Events and Sensors
+        this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_ONLINE], { clientId: clientId });
         ws.emit(ProtocolMesssages.Events, this.eventsId);
-        ws.emit(ProtocolMesssages.Sensors, this.sensors);
+
+        // ws.emit(ProtocolMesssages.Sensors, this.sensors);
         // let updateTimeInterval: NodeJS.Timer = setInterval(() => ws.emit('Time', Math.round(Date.now() / 1000.0)), 60000 * 30) // 30 minutes
         
         // if sensor client
@@ -224,14 +239,20 @@ export class WebSocketChannel {
 
         ws.on('disconnect', () => {
             // clearInterval(updateTimeInterval);
-            let eventData: WebSocketChannelEventData<any> = {
-                webSocketClientId: ws.id,
-                clientId: clientId,
-                data: data
-            };
-            this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, eventData);
+            let index: number = undefined;
+            this.onlineClients.forEach((client: {wsId: string, clientId: string, mac: string}, i: number) => {
+                if (client.wsId == ws.id) {
+                    index = i;
+                    return;
+                }
+            });
+
+            if(index) {
+                this.onlineClients.splice(index, 1);
+            }
+
+            this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, authEventData);
             this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_OFFLINE], { clientId: clientId, mac: mac });
-            // TODO: emit event and implement handler
         });
     }
 
@@ -272,6 +293,7 @@ export class WebSocketChannel {
                     let sensorData: any = Object.assign({}, s, { bypass: found });
                     this.sensors.push(sensorData);
                 });
+                console.log(this.sensors);
             }
         }
     }
