@@ -138,6 +138,16 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             case AntiTheftSystemStates.LEAVING:
                 this.leftTime = Date.now() + (this.config.exitTime * 1000);
                 break;
+            case AntiTheftSystemStates.DISARMED:
+                if (this.activatedSensors.length == 0) {
+                    this.config.state = AntiTheftSystemStates.READY;
+                }
+                break;
+            case AntiTheftSystemStates.READY:
+                if (this.activatedSensors.length > 0) {
+                    this.config.state = AntiTheftSystemStates.DISARMED;
+                }
+                break;
         }
 
         let systemState: SystemState = this.getSystemState();
@@ -151,11 +161,11 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             case AntiTheftSystemStates.ARMED:
                 this.emitter.emit(AntiTheftSystemEvents.SYSTEM_ARMED, { system: systemState });
                 break;
-            case AntiTheftSystemStates.DISARMED:
+            /*case AntiTheftSystemStates.DISARMED:
                 if (this.beforeState != AntiTheftSystemStates.READY) {
                     this.emitter.emit(AntiTheftSystemEvents.SYSTEM_DISARMED, { system: systemState });
                 }
-                break;
+                break;*/
         }
         return systemState;
     }
@@ -208,6 +218,18 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             if (lastConfig.state == AntiTheftSystemStates.PROGRAMMING) {
                 lastConfig.state = AntiTheftSystemStates.DISARMED;
             }
+            lastConfig.sensors.forEach((s: Sensor) => s.online = false);
+            setTimeout(() => {
+                let allOffline: boolean = true;
+                this.config.sensors.forEach((s: Sensor) => {
+                    if(s.online) {
+                        allOffline = false;
+                    }
+                });
+                if (allOffline && this.config.state == AntiTheftSystemStates.DISARMED) {
+                    this.setSystemState(AntiTheftSystemStates.READY);
+                }
+            }, 5000);
             this.config = lastConfig;
         }
 
@@ -1150,9 +1172,23 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                     });
                 }
 
+                let activatedSensorsOfClient: Sensor[] = [];
+                this.activatedSensors.forEach((s: Sensor, i: number) => {
+                    if (s.location.mac == eventData.data.mac) {
+                        activatedSensorsOfClient.push(s);
+                    }
+                });
+                
+                if(activatedSensorsOfClient.length > 0) {
+                    activatedSensorsOfClient.forEach((s: Sensor) => {
+                        this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor: s, value: 0 });
+                    });
+                }
+
                 if (this.offlineClientsTimers[clientId]) {
                     this.offlineClientsTimers[clientId].unref();
                     clearTimeout(this.offlineClientsTimers[clientId]);
+                    delete this.offlineClientsTimers[clientId];
                 }
                 this.offlineClientsTimers[clientId] = setTimeout(() => {
                     delete this.onlineClients[eventData.clientId];
@@ -1184,6 +1220,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 if (this.offlineClientsTimers[clientId]) {
                     this.offlineClientsTimers[clientId].unref();
                     clearTimeout(this.offlineClientsTimers[clientId]);
+                    delete this.offlineClientsTimers[clientId];
                 }
 
                 const clientEventData: ClientEventData = {
@@ -1206,7 +1243,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             console.log('unref ', k);
             this.offlineClientsTimers[k].unref();
             clearTimeout(this.offlineClientsTimers[k]);
-            this.offlineClientsTimers = null;
         }
+        this.offlineClientsTimers = null;
     }
 }

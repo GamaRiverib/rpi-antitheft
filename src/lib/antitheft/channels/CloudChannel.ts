@@ -5,6 +5,8 @@ import { app, credential, initializeApp, messaging } from 'firebase-admin';
 import { AntiTheftSystemEvents, AntiTheftSystemEventData } from '../AntiTheftSystemEvents';
 import { Logger } from '../utils/Logger';
 import { AntiTheftSystemStates } from '../AntiTheftSystemStates';
+import { SystemState } from '../SystemState';
+import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
 
 const serviceAccount: string = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
@@ -32,6 +34,10 @@ export class CloudChannel {
         this.configureEventsId();
         this.setupAtsEvents();
         this.setupOwnEvents();
+
+        const response: AntiTheftSystemResponse<SystemState> = this.ats.getState();
+
+        this.sendStartupNotification(response.data);
     }
 
     public static start(ats: AntiTheftSystemAPI): CloudChannel {
@@ -85,6 +91,28 @@ export class CloudChannel {
         return `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
     }
 
+    private sendStartupNotification(system: SystemState): void {
+        const topic: string = 'ats';
+        const payload: messaging.MessagingPayload = {
+            data: {
+                system: JSON.stringify(system)
+            },
+            notification: {
+                title: 'Antitheft System',
+                body: `[${this.getServerDateTimeString()}] Startup...`,
+                color: '#FFFF00'
+            }
+        };
+        const options: messaging.MessagingOptions = { priority: 'high' };
+        this.messagingService.sendToTopic(topic, payload, options)
+            .then((resp: messaging.MessagingTopicResponse) => {
+                console.log('Startup Notification', resp.messageId);
+            })
+            .catch((reason: any) => {
+                this.logger.error('Error Send Notification', { data: { error: reason, system: system } });
+        });
+    }
+
     private sendNotificationAlarmed(data: AntiTheftSystemEventData): void {
         console.log('Send notification for Alarmed');
         const topic: string = 'ats';
@@ -101,7 +129,7 @@ export class CloudChannel {
         const options: messaging.MessagingOptions = { priority: 'high' };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log(resp.messageId);
+                console.log('Alarmed Notification', resp.messageId);
             })
             .catch((reason: any) => {
                 this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
@@ -124,7 +152,7 @@ export class CloudChannel {
         const options: messaging.MessagingOptions = { priority: 'normal' };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log(resp.messageId);
+                console.log('Armed Notification', resp.messageId);
             })
             .catch((reason: any) => {
                 this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
@@ -147,7 +175,7 @@ export class CloudChannel {
         const options: messaging.MessagingOptions = { priority: 'normal' };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log(resp.messageId);
+                console.log('Disarmed Notification', resp.messageId);
             })
             .catch((reason: any) => {
                 this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
@@ -171,7 +199,7 @@ export class CloudChannel {
                 payload.notification.color = '#0000FF';
                 this.messagingService.sendToTopic(topic, payload, options)
                     .then((resp: messaging.MessagingTopicResponse) => {
-                        console.log(resp.messageId);
+                        console.log('Leaving Notification', resp.messageId);
                     })
                     .catch((reason: any) => {
                         this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
@@ -183,7 +211,7 @@ export class CloudChannel {
                 payload.notification.color = '#FFFF00';
                 this.messagingService.sendToTopic(topic, payload, options)
                     .then((resp: messaging.MessagingTopicResponse) => {
-                        console.log(resp.messageId);
+                        console.log('Entering Notification', resp.messageId);
                     })
                     .catch((reason: any) => {
                         this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
@@ -208,7 +236,7 @@ export class CloudChannel {
         const options: messaging.MessagingOptions = { priority: 'high' };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log(resp.messageId);
+                console.log('Max Alerts', resp.messageId);
             })
             .catch((reason: any) => {
                 this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
@@ -231,7 +259,7 @@ export class CloudChannel {
         const options: messaging.MessagingOptions = { priority: 'normal' };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log(resp.messageId);
+                console.log('Max Unauthorized Notification', resp.messageId);
             })
             .catch((reason: any) => {
                 this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });

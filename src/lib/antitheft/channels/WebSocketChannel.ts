@@ -189,11 +189,10 @@ export class WebSocketChannel {
         let mac: string = data.mac ? data.mac : '';
         let clientId: string = data.clientId ? data.clientId.toString() : '';
         let token: string = data.code ? data.code.toString() : '';
+
         let result: AntiTheftSystemResponse<void> = this.ats.validateClient(clientId, token);
 
         const authEventData: WebSocketChannelEventData<any> = { webSocketClientId: ws.id, clientId, data: { mac } };
-
-        this.onlineClients.push({ wsId: ws.id, clientId, mac });
 
         if(!result.success) {         
             if(result.error && result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
@@ -203,6 +202,7 @@ export class WebSocketChannel {
             return;
         }
 
+        this.onlineClients.push({ wsId: ws.id, clientId, mac });
         this.emitter.emit(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
         this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_ONLINE], { clientId: clientId });
         ws.emit(ProtocolMesssages.Events, this.eventsId);
@@ -293,7 +293,6 @@ export class WebSocketChannel {
                     let sensorData: any = Object.assign({}, s, { bypass: found });
                     this.sensors.push(sensorData);
                 });
-                console.log(this.sensors);
             }
         }
     }
