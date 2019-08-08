@@ -1,9 +1,9 @@
 // import { EventEmitter } from 'events';
 import winston = require('winston');
-import { connect, IClientOptions, Client, IClientSubscribeOptions, IClientPublishOptions } from 'mqtt';
+import { connect, IClientOptions, Client, IClientPublishOptions } from 'mqtt';
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { Logger } from '../utils/Logger';
-import { AntiTheftSystemEvents, AntiTheftSystemEventData, SensorActivedEventData, ClientEventData } from '../AntiTheftSystemEvents';
+import { AntiTheftSystemEvents, AntiTheftSystemEventData, ClientEventData } from '../AntiTheftSystemEvents';
 import { Conversions } from '../utils/Conversions';
 import { Sensor, SensorLocation } from '../Sensor';
 import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
@@ -162,7 +162,7 @@ export class MqttChannel {
         if(event) {
             let topic: string = `${MQTT_TOPIC}/${eventId}`;
             let payload: string = this.getPayload(data);
-            this.mqttClient.publish(topic, payload);
+            this.mqttClient.publish(topic, payload, { qos: 1 });
         }
     }
     
@@ -203,7 +203,7 @@ export class MqttChannel {
     private onMqttClientConnected(): void {
         this.logger.info('MQTT Channel connected to Broker', { data: { broker: MQTT_BROKER_URL, port: MQTT_BROKER_PORT } });
         if (this.mqttClient) {
-            this.mqttClient.publish(`${MQTT_TOPIC}/TIME`, (Math.round(Date.now() / 1000.0).toString()));
+            this.mqttClient.publish(`${MQTT_TOPIC}/TIME`, (Math.round(Date.now() / 1000.0).toString()), { qos: 0 });
 
             const opts: IClientPublishOptions = { retain: true, qos: 1 };
             this.mqttClient.publish(`${MQTT_TOPIC}/LWT`, 'ONLINE', opts);
@@ -237,10 +237,10 @@ export class MqttChannel {
             if (command == 'STATE') {
                 const response: AntiTheftSystemResponse<SystemState> = this.ats.getState();
                 const state: SystemState = response.data;
-                this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${message}`, JSON.stringify(state));
+                this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${message}`, JSON.stringify(state), { qos: 0 });
             } else if(command == 'TIME') {
                 const time: number = Math.round(Date.now() / 1000.0);
-                this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${message}`, time.toString());
+                this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${message}`, time.toString(), { qos: 0 });
             } else if (command == 'ARM') {
                 try {
                     const params = JSON.parse(message);
@@ -250,7 +250,7 @@ export class MqttChannel {
                             if(Number.isInteger(params.mode)) {
                                 result = this.ats.arm(params.mode, params.code);
                                 if(params.messageId) {
-                                    this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${params.messageId}`, result.success.toString().toUpperCase());
+                                    this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${params.messageId}`, result.success.toString().toUpperCase(), { qos: 0 });
                                 }
                             }
                         }
@@ -267,7 +267,7 @@ export class MqttChannel {
                             if(params.code) {
                                 result = this.ats.disarm(params.code);
                                 if(params.messageId) {
-                                    this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${params.messageId}`, result.success.toString().toUpperCase());
+                                    this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${params.messageId}`, result.success.toString().toUpperCase(), { qos: 0 });
                                 }
                             }
                         }
@@ -284,7 +284,7 @@ export class MqttChannel {
                             if(params.location) {
                                 result = this.ats.bypassOne(params.location, params.code);
                                 if(params.messageId) {
-                                    this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${params.messageId}`, result.success.toString().toUpperCase());
+                                    this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${params.messageId}`, result.success.toString().toUpperCase(), { qos: 0 });
                                 }
                             }
                         }
@@ -301,7 +301,7 @@ export class MqttChannel {
                             if(params.location) {
                                 result = this.ats.clearBypassOne(params.location, params.code);
                                 if(params.messageId) {
-                                    this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${params.messageId}`, result.success.toString().toUpperCase());
+                                    this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${params.messageId}`, result.success.toString().toUpperCase(), { qos: 0 });
                                 }
                             }
                         }
