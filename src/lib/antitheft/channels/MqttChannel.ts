@@ -160,7 +160,7 @@ export class MqttChannel {
     private onSystemEventHandler(eventId: string, data: AntiTheftSystemEventData): void {
         let event = this.eventsId[eventId];
         if(event) {
-            let topic: string = `${MQTT_TOPIC}/${eventId}`;
+            let topic: string = `${MQTT_TOPIC}/STATE/${eventId}`;
             let payload: string = this.getPayload(data);
             this.mqttClient.publish(topic, payload, { qos: 1 });
         }
