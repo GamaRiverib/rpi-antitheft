@@ -1,8 +1,4 @@
+import { Application } from "express";
 export abstract class Controller {
-    
-    constructor() {
-
-    }
-
-    abstract routes(server:any):void;
+    abstract routes(app: Application):void;
 }

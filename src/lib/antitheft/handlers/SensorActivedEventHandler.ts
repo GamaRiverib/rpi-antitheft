@@ -86,7 +86,7 @@ export class SensorActivedEventHandler {
                                         this.alarmedHandler(sensor);
                                         break;
                                     default:
-                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config }});
                                 }
                                 break;
                             case AntiTheftSystemArmedModes.CHIME:
@@ -98,7 +98,7 @@ export class SensorActivedEventHandler {
                                         this.chimeHandler(sensor);
                                         break;
                                     default:
-                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config }});
                                 }
                                 break;
                             case AntiTheftSystemArmedModes.INSTANT:
@@ -114,7 +114,7 @@ export class SensorActivedEventHandler {
                                         this.alarmedHandler(sensor);
                                         break;
                                     default:
-                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config }});
                                 }
                                 break;
                             case AntiTheftSystemArmedModes.MAXIMUM:
@@ -126,7 +126,7 @@ export class SensorActivedEventHandler {
                                         this.alarmedHandler(sensor);
                                         break;
                                     default:
-                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config }});
                                 }
                                 break;
                             case AntiTheftSystemArmedModes.NIGHT_STAY:
@@ -144,7 +144,7 @@ export class SensorActivedEventHandler {
                                         this.alarmedHandler(sensor);
                                         break;
                                     default:
-                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config }});
                                 }
                                 break;
                             case AntiTheftSystemArmedModes.STAY:
@@ -162,11 +162,11 @@ export class SensorActivedEventHandler {
                                         this.alarmedHandler(sensor);
                                         break;
                                     default:
-                                        this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                        this.logger.error('This message should not be displayed', { data: { event: data, config }});
                                 }
                                 break;
                             default:
-                                this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                                this.logger.error('This message should not be displayed', { data: { event: data, config }});
                         }
                     }
                     break;
@@ -184,7 +184,7 @@ export class SensorActivedEventHandler {
                     }
                     break;
                 default:
-                    this.logger.error('This message should not be displayed', { data: { event: data, config: config }});
+                    this.logger.error('This message should not be displayed', { data: { event: data, config }});
             }
         } else {
             let index = -1;

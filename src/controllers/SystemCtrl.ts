@@ -1,5 +1,5 @@
 import { Controller } from '../lib/Controller';
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, Application } from 'express';
 import { AntiTheftSystem } from '../lib/antitheft/AntiTheftSystem';
 import { AntiTheftSystemAPI } from '../lib/antitheft/AntiTheftSystemAPI';
 import { AntiTheftSystemResponse } from '../lib/antitheft/AntiTheftSystemResponse';
@@ -16,18 +16,18 @@ export class SystemController extends Controller {
         super();
     }
 
-    routes(server:any):void {
+    routes(app: Application):void {
 
-        server.get(this.basePath + '/state', this.validateClient, this.getState);
-        server.get(this.basePath + '/uptime', this.getUptime);
+        app.get(this.basePath + '/state', this.validateClient, this.getState);
+        app.get(this.basePath + '/uptime', this.getUptime);
 
-        server.put(this.basePath + '/bypass/one', this.validateClient, this.bypassOne);
-        server.put(this.basePath + '/bypass/all', this.validateClient, this.bypassAll);
-        server.put(this.basePath + '/unbypass/one', this.validateClient, this.clearBypassOne);
-        server.put(this.basePath + '/unbypass/all', this.validateClient, this.clearBypass);
+        app.put(this.basePath + '/bypass/one', this.validateClient, this.bypassOne);
+        app.put(this.basePath + '/bypass/all', this.validateClient, this.bypassAll);
+        app.put(this.basePath + '/unbypass/one', this.validateClient, this.clearBypassOne);
+        app.put(this.basePath + '/unbypass/all', this.validateClient, this.clearBypass);
 
-        server.put(this.basePath + '/arm', this.validateClient, this.arm);
-        server.put(this.basePath + '/disarm', this.validateClient, this.disarm);
+        app.put(this.basePath + '/arm', this.validateClient, this.arm);
+        app.put(this.basePath + '/disarm', this.validateClient, this.disarm);
     }
 
     private validateClient(req: Request, res: Response, next: NextFunction): void {

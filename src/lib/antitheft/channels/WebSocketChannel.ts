@@ -207,7 +207,7 @@ export class WebSocketChannel {
 
         this.onlineClients.push({ wsId: ws.id, clientId, mac });
         this.emitter.emit(WebSocketChannleEvents.AUTHORIZED_WEBSOCKET_CLIENT, authEventData);
-        this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_ONLINE], { clientId: clientId });
+        this.socket.emit(this.eventsId[AntiTheftSystemEvents.CLIENT_ONLINE], { clientId });
         ws.emit(ProtocolMesssages.Events, this.eventsId);
 
         // ws.emit(ProtocolMesssages.Sensors, this.sensors);

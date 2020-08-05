@@ -17,47 +17,47 @@ export class ConfigController extends Controller {
         super();
     }
 
-    routes(server: Application):void {
+    routes(app: Application):void {
         // Configure user codes
-        server.put(this.basePath + '/codes/guest', this.validateClient, this.setGuestCode);
-        server.put(this.basePath + '/codes/owner', this.validateClient, this.setOwnerCode);
-        server.put(this.basePath + '/codes/admin', this.validateClient, this.setAdminCode);
+        app.put(this.basePath + '/codes/guest', this.validateClient, this.setGuestCode);
+        app.put(this.basePath + '/codes/owner', this.validateClient, this.setOwnerCode);
+        app.put(this.basePath + '/codes/admin', this.validateClient, this.setAdminCode);
 
         // Set programming mode
-        server.put(this.basePath + '/programm', this.validateClient, this.setProgrammingMode);
-        server.delete(this.basePath + '/programm', this.validateClient, this.unsetProgrammingMode);
+        app.put(this.basePath + '/programm', this.validateClient, this.setProgrammingMode);
+        app.delete(this.basePath + '/programm', this.validateClient, this.unsetProgrammingMode);
 
-        server.put(this.basePath + '/sensors', this.validateClient, this.setSensor);
-        server.delete(this.basePath + '/sensors', this.validateClient, this.unsetSensor);
+        app.put(this.basePath + '/sensors', this.validateClient, this.setSensor);
+        app.delete(this.basePath + '/sensors', this.validateClient, this.unsetSensor);
 
-        server.put(this.basePath + '/times/entry', this.validateClient, this.setEntryTime);
-        server.put(this.basePath + '/times/exit', this.validateClient, this.setExitTime);
-        server.put(this.basePath + '/beep/on', this.validateClient, this.turnOnBeep);
-        server.put(this.basePath + '/beep/off', this.validateClient, this.turnOffBeep);
-        server.put(this.basePath + '/beep/toggle', this.validateClient, this.toggleBeep);
-        server.put(this.basePath + '/silent/on', this.validateClient, this.turnOnSilentAlarm);
-        server.put(this.basePath + '/silent/off', this.validateClient, this.turnOffSilentAlarm);
-        server.put(this.basePath + '/silent/toggle', this.validateClient, this.toggleSilentAlarm);
+        app.put(this.basePath + '/times/entry', this.validateClient, this.setEntryTime);
+        app.put(this.basePath + '/times/exit', this.validateClient, this.setExitTime);
+        app.put(this.basePath + '/beep/on', this.validateClient, this.turnOnBeep);
+        app.put(this.basePath + '/beep/off', this.validateClient, this.turnOffBeep);
+        app.put(this.basePath + '/beep/toggle', this.validateClient, this.toggleBeep);
+        app.put(this.basePath + '/silent/on', this.validateClient, this.turnOnSilentAlarm);
+        app.put(this.basePath + '/silent/off', this.validateClient, this.turnOffSilentAlarm);
+        app.put(this.basePath + '/silent/toggle', this.validateClient, this.toggleSilentAlarm);
 
-        server.put(this.basePath + '/phones/central', this.validateClient, this.setCentralPhone);
-        server.delete(this.basePath + '/phones/central', this.validateClient, this.unsetCentralPhone);
-        server.put(this.basePath + '/phones/admin', this.validateClient, this.setAdminPhone);
-        server.delete(this.basePath + '/phones/admin', this.validateClient, this.unsetAdminPhone);
+        app.put(this.basePath + '/phones/central', this.validateClient, this.setCentralPhone);
+        app.delete(this.basePath + '/phones/central', this.validateClient, this.unsetCentralPhone);
+        app.put(this.basePath + '/phones/admin', this.validateClient, this.setAdminPhone);
+        app.delete(this.basePath + '/phones/admin', this.validateClient, this.unsetAdminPhone);
 
-        server.post(this.basePath + '/phones/owner', this.validateClient, this.addOwnerPhone);
-        server.put(this.basePath + '/phones/owner/:index', this.validateClient, this.updateOwnerPhone);
-        server.delete(this.basePath + '/phones/owner/:index', this.validateClient, this.deleteOwnerPhone);
+        app.post(this.basePath + '/phones/owner', this.validateClient, this.addOwnerPhone);
+        app.put(this.basePath + '/phones/owner/:index', this.validateClient, this.updateOwnerPhone);
+        app.delete(this.basePath + '/phones/owner/:index', this.validateClient, this.deleteOwnerPhone);
 
-        server.put(this.basePath + '/emails/central', this.validateClient, this.setCentralEmail);
-        server.delete(this.basePath + '/emails/central', this.validateClient, this.unsetCentralEmail);
-        server.put(this.basePath + '/emails/admin', this.validateClient, this.setAdminEmail);
-        server.delete(this.basePath + '/emails/admin', this.validateClient, this.unsetAdminEmail);
+        app.put(this.basePath + '/emails/central', this.validateClient, this.setCentralEmail);
+        app.delete(this.basePath + '/emails/central', this.validateClient, this.unsetCentralEmail);
+        app.put(this.basePath + '/emails/admin', this.validateClient, this.setAdminEmail);
+        app.delete(this.basePath + '/emails/admin', this.validateClient, this.unsetAdminEmail);
 
-        server.post(this.basePath + '/emails/owner', this.validateClient, this.addOwnerEmail);
-        server.put(this.basePath + '/emails/owner/:index', this.validateClient, this.updateOwnerEmail);
-        server.delete(this.basePath + '/emails/owner/:index', this.validateClient, this.deleteOwnerEmail);
+        app.post(this.basePath + '/emails/owner', this.validateClient, this.addOwnerEmail);
+        app.put(this.basePath + '/emails/owner/:index', this.validateClient, this.updateOwnerEmail);
+        app.delete(this.basePath + '/emails/owner/:index', this.validateClient, this.deleteOwnerEmail);
 
-        server.get(this.basePath + '/secret', this.validateClient, this.generateSecret);
+        app.get(this.basePath + '/secret', this.validateClient, this.generateSecret);
     }
 
     private validateClient(req: Request, res: Response, next: NextFunction): void {

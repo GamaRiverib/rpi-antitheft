@@ -11,7 +11,7 @@ import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
 import { AntiTheftSystemConfig } from '../AntiTheftSystemConfig';
 import { SystemState } from '../SystemState';
 
-const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtt://192.168.137.1';
+const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtt://127.0.0.1';
 const MQTT_BROKER_PORT = process.env.MQTT_BROKER_PORT || 1883;
 const MQTT_CLIENT_ID = process.env.MQTT_CLIENT_ID || 'ats';
 const MQTT_TOPIC = process.env.MQTT_TOPIC || 'ats';

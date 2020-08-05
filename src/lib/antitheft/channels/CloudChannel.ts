@@ -9,6 +9,7 @@ import { SystemState } from '../SystemState';
 import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
 
 const serviceAccount: string = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+const projectId: string = process.env.GOOGLE_PROJECT_ID;
 
 export class CloudChannel {
 
@@ -26,7 +27,7 @@ export class CloudChannel {
         this.logger = getLogger('CloudChannel');
         this.cloudClient = initializeApp({
             credential: credential.cert(serviceAccount),
-            projectId: 'antitheft-system'
+            projectId
         });
 
         this.messagingService = this.cloudClient.messaging();
