@@ -2,10 +2,11 @@
 import winston = require('winston');
 import { connect, IClientOptions, Client, IClientPublishOptions } from 'mqtt';
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
-import { Logger } from '../utils/Logger';
+import { getLogger } from '../../utils/Logger';
 import { AntiTheftSystemEvents, AntiTheftSystemEventData, ClientEventData } from '../AntiTheftSystemEvents';
-import { Conversions } from '../utils/Conversions';
-import { Sensor, SensorLocation } from '../Sensor';
+import { Conversions } from '../../utils/Conversions';
+import { Sensor } from '../Sensor';
+import { SensorLocation } from '../SensorLocation';
 import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
 import { AntiTheftSystemConfig } from '../AntiTheftSystemConfig';
 import { SystemState } from '../SystemState';
@@ -34,7 +35,7 @@ export class MqttChannel {
 
     private constructor(private ats: AntiTheftSystemAPI) {
 
-        this.logger = Logger.getLogger('MqttChannel');
+        this.logger = getLogger('MqttChannel');
 
         this.configureEventsId();
 
@@ -59,14 +60,14 @@ export class MqttChannel {
     private updateSensors(): void {
         this.configureSensors();
         if(this.mqttClient) {
-            this.mqttClient.publish(`${MQTT_TOPIC}/SENSORS`, JSON.stringify(this.sensors), { retain: true, qos: 0 });
+            this.mqttClient.publish(`${MQTT_TOPIC}/SENSORS`, JSON.stringify(this.sensors), { retain: true, qos: 1 });
         }
     }
 
     private configureSensors(): void {
-        let res: AntiTheftSystemResponse<AntiTheftSystemConfig> = this.ats.getConfig();
+        const res: AntiTheftSystemResponse<AntiTheftSystemConfig> = this.ats.getConfig();
         if(res.data) {
-            let bypass: SensorLocation[] = res.data.bypass || [];
+            const bypass: SensorLocation[] = res.data.bypass || [];
             if (res.data.sensors.length > 0) {
                 this.sensors = [];
                 res.data.sensors.forEach((s: Sensor) => {
@@ -77,7 +78,7 @@ export class MqttChannel {
                             return;
                         }
                     });
-                    let sensorData: any = Object.assign({}, s, { bypass: found });
+                    const sensorData: any = Object.assign({}, s, { bypass: found });
                     this.sensors.push(sensorData);
                 });
             }
@@ -86,7 +87,7 @@ export class MqttChannel {
 
     private configureMqttClient(): void {
         // connect to mqtt
-        let mqttOpts: IClientOptions = {
+        const mqttOpts: IClientOptions = {
             clean: false,
             clientId: MQTT_CLIENT_ID,
             // protocol: "ws",
@@ -112,13 +113,13 @@ export class MqttChannel {
 
         this.ats.on(AntiTheftSystemEvents.SYSTEM_ALARMED, (data: AntiTheftSystemEventData) =>
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_ALARMED, data));
-            
+
         this.ats.on(AntiTheftSystemEvents.SYSTEM_ARMED, (data: AntiTheftSystemEventData) =>
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_ARMED, data));
-        
+
         this.ats.on(AntiTheftSystemEvents.SYSTEM_DISARMED, (data: AntiTheftSystemEventData) =>
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_DISARMED, data));
-        
+
         this.ats.on(AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, (data: AntiTheftSystemEventData) =>
             this.onSystemEventHandler.call(this, AntiTheftSystemEvents.SYSTEM_STATE_CHANGED, data));
 
@@ -158,31 +159,31 @@ export class MqttChannel {
     }
 
     private onSystemEventHandler(eventId: string, data: AntiTheftSystemEventData): void {
-        let event = this.eventsId[eventId];
+        const event = this.eventsId[eventId];
         if(event) {
-            let topic: string = `${MQTT_TOPIC}/STATE/${eventId}`;
-            let payload: string = this.getPayload(data);
+            const topic: string = `${MQTT_TOPIC}/STATE/${eventId}`;
+            const payload: string = this.getPayload(data);
             this.mqttClient.publish(topic, payload, { qos: 1 });
         }
     }
-    
+
     private getPayload(data: AntiTheftSystemEventData): string {
         let payload = '';
-        let s = data.system;
-        if(s) {
-            payload = `${s.state}${s.mode || 0}`;
-            if (s.leftTime > 0) {
-                let leftTimeout = Math.round((s.leftTime - s.uptime) / 1000);
+        const systemState = data.system;
+        if(systemState) {
+            payload = `${systemState.state}${systemState.mode || 0}`;
+            if (systemState.leftTime > 0) {
+                const leftTimeout = Math.round((systemState.leftTime - systemState.uptime) / 1000);
                 payload += Conversions.leftpad(leftTimeout.toString(32).toUpperCase(), 2, '0');
             } else {
                 payload += '00';
             }
-            if(s.activedSensors.length > 0) {
-                payload += Conversions.leftpad(s.activedSensors.length.toString(32).toUpperCase(), 2, '0');
+            if(systemState.activedSensors.length > 0) {
+                payload += Conversions.leftpad(systemState.activedSensors.length.toString(32).toUpperCase(), 2, '0');
             } else {
                 payload += '00';
             }
-            s.activedSensors.forEach((sensor: Sensor, i: number) => {
+            systemState.activedSensors.forEach((sensor: Sensor) => {
                 this.sensors.forEach((s: Sensor, i: number) => {
                     if(SensorLocation.equals(s.location, sensor.location)) {
                         payload += Conversions.leftpad(i.toString(32).toUpperCase(), 2, '0');
@@ -195,7 +196,7 @@ export class MqttChannel {
     }
 
     private getSubcribeTopics(): string[] {
-        let topics: string[] = [];
+        const topics: string[] = [];
         topics.push(`${MQTT_TOPIC}/${MQTT_CMND}/#`);
         return topics;
     }
@@ -210,7 +211,7 @@ export class MqttChannel {
             this.mqttClient.publish(`${MQTT_TOPIC}/EVENTS`, JSON.stringify(this.eventsId), opts);
             this.mqttClient.publish(`${MQTT_TOPIC}/SENSORS`, JSON.stringify(this.sensors), opts);
 
-            let topics: string[] = this.getSubcribeTopics();
+            const topics: string[] = this.getSubcribeTopics();
             this.mqttClient.subscribe(topics, { qos: 0 }, this.subscriptionsResultCb.bind(this));
             this.mqttClient.on('message', this.messageHandler.bind(this));
         }
@@ -234,14 +235,14 @@ export class MqttChannel {
         if(subTopic.startsWith(MQTT_CMND)) {
             const command: string = subTopic.substr(MQTT_CMND.length + 1);
             this.logger.info('Recieve command', { data: { command, message: message.toString() } });
-            if (command == 'STATE') {
+            if (command === 'STATE') {
                 const response: AntiTheftSystemResponse<SystemState> = this.ats.getState();
                 const state: SystemState = response.data;
-                this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${message}`, JSON.stringify(state), { qos: 0 });
-            } else if(command == 'TIME') {
+                this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${message}`, JSON.stringify(state), { qos: 1 });
+            } else if(command === 'TIME') {
                 const time: number = Math.round(Date.now() / 1000.0);
-                this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${message}`, time.toString(), { qos: 0 });
-            } else if (command == 'ARM') {
+                this.mqttClient.publish(`${MQTT_TOPIC}/RESULT/${message}`, time.toString(), { qos: 1 });
+            } else if (command === 'ARM') {
                 try {
                     const params = JSON.parse(message);
                     if (params.clientId && params.token) {
@@ -258,7 +259,7 @@ export class MqttChannel {
                 } catch(e) {
                     console.log('[ERROR]', e);
                 }
-            } else if (command == 'DISARM') {
+            } else if (command === 'DISARM') {
                 try {
                     const params = JSON.parse(message);
                     if (params.clientId && params.token) {
@@ -275,7 +276,7 @@ export class MqttChannel {
                 } catch(e) {
                     console.log('[ERROR]', e);
                 }
-            } else if (command == 'BYPASS') {
+            } else if (command === 'BYPASS') {
                 try {
                     const params = JSON.parse(message);
                     if (params.clientId && params.token) {
@@ -292,7 +293,7 @@ export class MqttChannel {
                 } catch(e) {
                     console.log('[ERROR]', e);
                 }
-            } else if (command == 'CLEARBYPASSONE') {
+            } else if (command === 'CLEARBYPASSONE') {
                 try {
                     const params = JSON.parse(message);
                     if (params.clientId && params.token) {
@@ -322,7 +323,7 @@ export class MqttChannel {
 
     public static stop(): void {
         if(MqttChannel.INSTANCE) {
-            let topics: string[] = MqttChannel.INSTANCE.getSubcribeTopics();
+            const topics: string[] = MqttChannel.INSTANCE.getSubcribeTopics();
             MqttChannel.INSTANCE.mqttClient.unsubscribe(topics);
             MqttChannel.INSTANCE.mqttClient.removeAllListeners();
             MqttChannel.INSTANCE.mqttClient.end(true, () => {
@@ -331,5 +332,5 @@ export class MqttChannel {
             });
         }
     }
-    
+
 }

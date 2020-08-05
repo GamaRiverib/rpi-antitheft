@@ -1,18 +1,19 @@
-import { Logger as winstonLogger } from 'winston';
+import winston = require('winston');
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
-import { Sensor, SensorLocation, SensorGroup } from '../Sensor';
+import { Sensor, SensorGroup } from '../Sensor';
+import { SensorLocation } from '../SensorLocation';
 import { AntiTheftSystemArmedModes } from '../AntiTheftSystemArmedModes';
 import { AntiTheftSystemStates } from '../AntiTheftSystemStates';
 
 import { AntiTheftSystemEvents, SensorActivedEventData } from '../AntiTheftSystemEvents';
 import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
 import { SystemState } from '../SystemState';
-import { Logger } from '../utils/Logger';
+import { getLogger } from '../../utils/Logger';
 import { AntiTheftSystemConfig } from '../AntiTheftSystemConfig';
 
 export class SensorActivedEventHandler {
 
-    private logger: winstonLogger;
+    private logger: winston.Logger;
 
     private enteringHandler: (sensor: Sensor) => void;
 
@@ -27,24 +28,23 @@ export class SensorActivedEventHandler {
     private readyHandler: (sensor: Sensor) => void;
 
     constructor(private antiTheftSystem: AntiTheftSystemAPI) {
-        this.logger = Logger.getLogger('SensorEvents');
+        this.logger = getLogger('SensorEvents');
         this.antiTheftSystem.on(AntiTheftSystemEvents.SENSOR_ACTIVED, this.handle.bind(this));
     }
 
     private handle(data: SensorActivedEventData): void {
-        let sensor: Sensor = data.sensor;
-        let value: number = data.value;
+        const sensor: Sensor = data.sensor;
+        const value: number = data.value;
 
-        let resState: AntiTheftSystemResponse<SystemState> = this.antiTheftSystem.getState();
-        let resConfig: AntiTheftSystemResponse<AntiTheftSystemConfig> = this.antiTheftSystem.getConfig();
+        const resState: AntiTheftSystemResponse<SystemState> = this.antiTheftSystem.getState();
+        const resConfig: AntiTheftSystemResponse<AntiTheftSystemConfig> = this.antiTheftSystem.getConfig();
 
-        let state: AntiTheftSystemStates = resState.data.state;
-        let activatedSensors: Sensor[] = resState.data.activedSensors;
-        let config: AntiTheftSystemConfig = resConfig.data;
+        const state: AntiTheftSystemStates = resState.data.state;
+        const activatedSensors: Sensor[] = resState.data.activedSensors;
+        const config: AntiTheftSystemConfig = resConfig.data;
         let bypass: boolean = false;
 
-        // TODO: 
-        if (value == 1) {
+        if (value === 1) {
             let index = -1;
             activatedSensors.forEach((s: Sensor, i: number) => {
                 if(SensorLocation.equals(s.location, sensor.location)) {
@@ -71,7 +71,7 @@ export class SensorActivedEventHandler {
                     if(bypass) {
                         this.logger.warn(`[IGNORE]: Sensor ${sensor.name} actived, but is in the bypass list`);
                     } else {
-                        let mode: AntiTheftSystemArmedModes = config.mode ? parseInt(config.mode.toString()) : 0;
+                        const mode: AntiTheftSystemArmedModes = config.mode ? parseInt(config.mode.toString(), 10) : 0;
                         switch(mode) {
                             case AntiTheftSystemArmedModes.AWAY:
                                 switch(sensor.group) {
@@ -197,7 +197,7 @@ export class SensorActivedEventHandler {
             if(index >= 0) {
                 activatedSensors.splice(index, 1);
             }
-            if(config.state == AntiTheftSystemStates.DISARMED && activatedSensors.length == 0) {
+            if(config.state === AntiTheftSystemStates.DISARMED && activatedSensors.length === 0) {
                 this.readyHandler(sensor);
             }
         }
@@ -226,5 +226,4 @@ export class SensorActivedEventHandler {
     public onReadyEvent(listener: (sensor: Sensor) => void): void {
         this.readyHandler = listener;
     }
-
 }

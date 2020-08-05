@@ -9,7 +9,7 @@ export interface SensorAlert {
 }
 
 export interface MaxAlertsEventData {
-    alerts: Array<SensorAlert>
+    alerts: SensorAlert[]
 }
 
 export class AlertsEventHandler {
@@ -19,8 +19,8 @@ export class AlertsEventHandler {
     private maxAlertsCount = 3;
 
     private windowAlertsLength = 60000; // 1 min = 60, 000 ms
-    
-    private alerts: Array<SensorAlert> = [];
+
+    private alerts: SensorAlert[] = [];
 
     constructor(private antiTheftSystem: AntiTheftSystemAPI) {
         this.emitter = new EventEmitter();
@@ -28,13 +28,13 @@ export class AlertsEventHandler {
     }
 
     private handle(data: AntiTheftSystemEventData): void {
-        let alert: SensorAlert = {
+        const alert: SensorAlert = {
             sensor: data.sensor,
             at: new Date()
         };
         this.alerts.push(alert);
-        let now = Date.now();
-        let alerts: Array<SensorAlert> = [];
+        const now = Date.now();
+        const alerts: SensorAlert[] = [];
         this.alerts.forEach((sa: SensorAlert) => {
             if(now - sa.at.getTime() < this.windowAlertsLength) {
                 alerts.push(sa);
@@ -42,7 +42,7 @@ export class AlertsEventHandler {
         });
         this.alerts = alerts;
         if (this.alerts.length > this.maxAlertsCount) {
-            let eventData: MaxAlertsEventData = { alerts: this.alerts };
+            const eventData: MaxAlertsEventData = { alerts: this.alerts };
             this.emitter.emit(AntiTheftSystemEvents.MAX_ALERTS, eventData);
             this.alerts = [];
         }
@@ -68,7 +68,7 @@ export class AlertsEventHandler {
         return this.windowAlertsLength;
     }
 
-    public getAlerts(): Array<SensorAlert> {
+    public getAlerts(): SensorAlert[] {
         return this.alerts;
     }
 

@@ -56,9 +56,9 @@ export class AntiTheftSystemEvents {
     public static readonly CLIENT_OFFLINE = 'CLIENT_OFFLINE';
 
     public static eventsList(): string[] {
-        let list: string[] = [];
-        for(let k in AntiTheftSystemEvents) {
-            if(typeof AntiTheftSystemEvents[k] == 'string') {
+        const list: string[] = [];
+        for(const k in AntiTheftSystemEvents) {
+            if(typeof AntiTheftSystemEvents[k] === 'string') {
                 list.push(AntiTheftSystemEvents[k]);
             }
         }

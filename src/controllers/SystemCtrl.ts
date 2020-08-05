@@ -1,5 +1,5 @@
 import { Controller } from '../lib/Controller';
-import { Request, Response, Next } from 'restify';
+import { Request, Response, NextFunction } from 'express';
 import { AntiTheftSystem } from '../lib/antitheft/AntiTheftSystem';
 import { AntiTheftSystemAPI } from '../lib/antitheft/AntiTheftSystemAPI';
 import { AntiTheftSystemResponse } from '../lib/antitheft/AntiTheftSystemResponse';
@@ -30,163 +30,166 @@ export class SystemController extends Controller {
         server.put(this.basePath + '/disarm', this.validateClient, this.disarm);
     }
 
-    private validateClient(req: Request, res: Response, next: Next): void {
+    private validateClient(req: Request, res: Response, next: NextFunction): void {
         if(!req.headers.authorization) {
-            return res.send(401);
+            res.status(401).send();
+            return;
         }
-        let auth = req.headers.authorization.split(' ');
+        const auth = req.headers.authorization.split(' ');
         if(auth.length < 2) {
-            return res.send(401);
+            res.status(401).send();
+            return
         }
-        let clientId: string = auth[0] || '';
-        let token: string = auth[1] || '';
+        const clientId: string = auth[0] || '';
+        const token: string = auth[1] || '';
 
-        let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.validateClient(clientId, token);
+        const result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.validateClient(clientId, token);
         if(!result.success) {
-            return res.send(401);
+            res.status(401).send();
+            return
         }
         next();
     }
 
-    private getState(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse<SystemState> = antiTheftSystemAPI.getState();
+    private getState(req: Request, res: Response, next: NextFunction): void {
+        const result: AntiTheftSystemResponse<SystemState> = antiTheftSystemAPI.getState();
         if (result.success) {
-            res.send(200, result.data);
+            res.status(200).send(result.data);
         } else {
-            res.send(400, result.error);
+            res.status(400).send(result.error);
         }
     }
 
-    private getUptime(req: Request, res: Response, next: Next): void {
-        res.send(200, { uptime: Date.now() });
+    private getUptime(req: Request, res: Response, next: NextFunction): void {
+        res.status(200).send({ uptime: Date.now() });
     }
 
-    private bypassOne(req: Request, res: Response, next: Next): void {
+    private bypassOne(req: Request, res: Response, next: NextFunction): void {
         if (!req.body || !req.body.location) {
-            res.send(400);
+            res.status(400).send();
         } else {
             let location: any = req.body.location;
             if(typeof location === 'string') {
                 try {
                     location = JSON.parse(location);
                 } catch(err) {
-                    res.send(400, { error: err });
+                    res.status(400).send({ error: err });
                 }
             }
-            let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.bypassOne(location, req.body.code);
+            const result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.bypassOne(location, req.body.code);
             if (result.success) {
-                res.send(204);
+                res.status(204).send();
             } else {
-                if (result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
-                    res.send(403);
-                } else if (result.error == AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
-                    res.send(409);
+                if (result.error === AntiTheftSystemErrors.NOT_AUTHORIZED) {
+                    res.status(403).send();
+                } else if (result.error === AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
+                    res.status(409).send();
                 } else {
-                    res.send(400, { error: result.error });
+                    res.status(400).send({ error: result.error });
                 }
             }
         }
         next();
     }
 
-    private bypassAll(req: Request, res: Response, next: Next): void {
+    private bypassAll(req: Request, res: Response, next: NextFunction): void {
         if (!req.body || !req.body.locations) {
-            res.send(400);
+            res.status(400).send();
         } else {
-            let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.bypassAll(req.body.locations, req.body.code);
+            const result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.bypassAll(req.body.locations, req.body.code);
             if (result.success) {
-                res.send(204);
+                res.status(204).send();
             } else {
-                if (result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
-                    res.send(403);
-                } else if (result.error == AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
-                    res.send(409);
+                if (result.error === AntiTheftSystemErrors.NOT_AUTHORIZED) {
+                    res.status(403).send();
+                } else if (result.error === AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
+                    res.status(409).send();
                 } else {
-                    res.send(400, { error: result.error });
+                    res.status(400).send({ error: result.error });
                 }
             }
         }
         next();
     }
 
-    private clearBypassOne(req: Request, res: Response, next: Next): void {
+    private clearBypassOne(req: Request, res: Response, next: NextFunction): void {
         if (!req.body || !req.body.location) {
-            res.send(400);
+            res.status(400).send();
         } else {
             let location: any = req.body.location;
             if(typeof location === 'string') {
                 try {
                     location = JSON.parse(location);
                 } catch(err) {
-                    res.send(400, { error: err });
+                    res.status(400).send({ error: err });
                 }
             }
-            let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.clearBypassOne(location, req.body.code);
+            const result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.clearBypassOne(location, req.body.code);
             if (result.success) {
-                res.send(204);
+                res.status(204).send();
             } else {
-                if (result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
-                    res.send(403);
-                } else if (result.error == AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
-                    res.send(409);
+                if (result.error === AntiTheftSystemErrors.NOT_AUTHORIZED) {
+                    res.status(403).send();
+                } else if (result.error === AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
+                    res.status(409).send();
                 } else {
-                    res.send(400, { error: result.error });
+                    res.status(400).send({ error: result.error });
                 }
             }
         }
         next();
     }
 
-    private clearBypass(req: Request, res: Response, next: Next): void {
-        let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.clearBypass(req.body.code);
+    private clearBypass(req: Request, res: Response, next: NextFunction): void {
+        const result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.clearBypass(req.body.code);
         if (result.success) {
-            res.send(204);
+            res.status(204).send();
         } else {
-            if (result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
-                res.send(403);
-            } else if (result.error == AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
-                res.send(409);
+            if (result.error === AntiTheftSystemErrors.NOT_AUTHORIZED) {
+                res.status(403).send();
+            } else if (result.error === AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
+                res.status(409).send();
             } else {
-                res.send(400, { error: result.error });
+                res.status(400).send({ error: result.error });
             }
         }
         next();
     }
 
-    private arm(req: Request, res: Response, next: Next): void {
+    private arm(req: Request, res: Response, next: NextFunction): void {
         if (!req.body || !req.body.mode) {
-            res.send(400);
+            res.status(400).send();
         } else {
-            let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.arm(req.body.mode, req.body.code);
+            const result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.arm(req.body.mode, req.body.code);
             if (result.success) {
-                res.send(204);
+                res.status(204).send();
             } else {
-                if (result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
-                    res.send(403);
-                } else if (result.error == AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
-                    res.send(409);
+                if (result.error === AntiTheftSystemErrors.NOT_AUTHORIZED) {
+                    res.status(403).send();
+                } else if (result.error === AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
+                    res.status(409).send();
                 } else {
-                    res.send(400, { error: result.error });
+                    res.status(400).send({ error: result.error });
                 }
             }
         }
         next();
     }
 
-    private disarm(req: Request, res: Response, next: Next): void {
+    private disarm(req: Request, res: Response, next: NextFunction): void {
         if (!req.body || !req.body.code) {
-            res.send(400);
+            res.status(400).send();
         } else {
-            let result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.disarm(req.body.code);
+            const result: AntiTheftSystemResponse<void> = antiTheftSystemAPI.disarm(req.body.code);
             if (result.success) {
-                res.send(204);
+                res.status(204).send();
             } else {
-                if (result.error == AntiTheftSystemErrors.NOT_AUTHORIZED) {
-                    res.send(403);
-                } else if (result.error == AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
-                    res.send(409);
+                if (result.error === AntiTheftSystemErrors.NOT_AUTHORIZED) {
+                    res.status(403).send();
+                } else if (result.error === AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
+                    res.status(409).send();
                 } else {
-                    res.send(400, { error: result.error });
+                    res.status(400).send({ error: result.error });
                 }
             }
         }

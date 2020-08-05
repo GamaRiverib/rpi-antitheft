@@ -3,7 +3,7 @@ import winston = require('winston');
 import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
 import { app, credential, initializeApp, messaging } from 'firebase-admin';
 import { AntiTheftSystemEvents, AntiTheftSystemEventData } from '../AntiTheftSystemEvents';
-import { Logger } from '../utils/Logger';
+import { getLogger } from '../../utils/Logger';
 import { AntiTheftSystemStates } from '../AntiTheftSystemStates';
 import { SystemState } from '../SystemState';
 import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
@@ -23,8 +23,8 @@ export class CloudChannel {
     private messagingService: messaging.Messaging = null;
 
     private constructor(private ats: AntiTheftSystemAPI) {
-        this.logger = Logger.getLogger('CloudChannel');
-        this.cloudClient = initializeApp({ 
+        this.logger = getLogger('CloudChannel');
+        this.cloudClient = initializeApp({
             credential: credential.cert(serviceAccount),
             projectId: 'antitheft-system'
         });
@@ -64,10 +64,10 @@ export class CloudChannel {
 
         this.ats.on(AntiTheftSystemEvents.SYSTEM_ALARMED, (data: AntiTheftSystemEventData) =>
             this.sendNotificationAlarmed.call(this, data));
-            
+
         this.ats.on(AntiTheftSystemEvents.SYSTEM_ARMED, (data: AntiTheftSystemEventData) =>
             this.sendNotificationArmed.call(this, data));
-        
+
         this.ats.on(AntiTheftSystemEvents.SYSTEM_DISARMED, (data: AntiTheftSystemEventData) =>
             this.sendNotificationDisarmed.call(this, data));
 
@@ -82,8 +82,9 @@ export class CloudChannel {
 
     }
 
+    // tslint:disable-next-line: no-empty
     private setupOwnEvents(): void {
-        
+
     }
 
     private getServerDateTimeString(): string {
@@ -109,7 +110,7 @@ export class CloudChannel {
                 console.log('Startup Notification', resp.messageId);
             })
             .catch((reason: any) => {
-                this.logger.error('Error Send Notification', { data: { error: reason, system: system } });
+                this.logger.error('Error Send Notification', { data: { error: reason, system } });
         });
     }
 
@@ -185,7 +186,7 @@ export class CloudChannel {
     private sendNotificationStateChanged(data: AntiTheftSystemEventData): void {
         const state: AntiTheftSystemStates = data.system.state;
         const topic: string = 'ats';
-        let payload: messaging.MessagingPayload = {
+        const payload: messaging.MessagingPayload = {
             data: {
                 system: JSON.stringify(data.system)
             },

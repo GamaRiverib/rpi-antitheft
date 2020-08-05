@@ -23,8 +23,8 @@ export class NotAuthorizedEventHandler {
 
     private handle(data: AntiTheftSystemEventData): void {
         this.unauthorizedIntents.push(new Date());
-        let now = Date.now();
-        let intents: Date[] = [];
+        const now = Date.now();
+        const intents: Date[] = [];
         this.unauthorizedIntents.forEach((intent: Date, index: number) => {
             if(now - intent.getTime() < this.windowUnauthorizedIntentLength) {
                 intents.push(intent);
@@ -32,7 +32,7 @@ export class NotAuthorizedEventHandler {
         });
         this.unauthorizedIntents = intents;
         if (this.unauthorizedIntents.length > this.maxUnauthorizedIntentCount) {
-            let eventData: MaxUnAuthorizedIntentsEventData = { intents: this.unauthorizedIntents };
+            const eventData: MaxUnAuthorizedIntentsEventData = { intents: this.unauthorizedIntents };
             this.emitter.emit(AntiTheftSystemEvents.MAX_UNAUTHORIZED_INTENTS, eventData);
         }
     }

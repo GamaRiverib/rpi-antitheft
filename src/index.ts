@@ -1,13 +1,15 @@
-import app from './App';
+import winston = require("winston");
 
-const env = process.env.NODE_ENV || 'development';
-const port = process.env.NODE_PORT || 3000;
-const base_url = process.env.BASE_URL || '192.168.137.1';
+import { getLogger } from "./lib/utils/Logger";
+import { app }  from "./app";
 
-app.listen(port, base_url, (err) => {
-  if (err) {
-    return console.log(err);
-  }
+const logger: winston.Logger = getLogger("SERVER");
+logger.info("Starting...");
 
-  return console.log(`server is listening on ${base_url}:${port} in ${env} environment`);
+const PORT = Number(process.env.PORT) || 8080;
+
+const server = app.listen(PORT, () => {
+  logger.info(`App listening on port ${PORT}`);
 });
+
+module.exports = server;

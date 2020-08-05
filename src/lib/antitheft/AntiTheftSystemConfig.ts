@@ -1,6 +1,7 @@
 import { AntiTheftSystemStates } from "./AntiTheftSystemStates";
 import { AntiTheftSystemArmedModes } from "./AntiTheftSystemArmedModes";
-import { Sensor, SensorLocation } from "./Sensor";
+import { Sensor } from "./Sensor";
+import { SensorLocation } from "./SensorLocation";
 
 export interface AntiTheftSystemConfig {
     state: AntiTheftSystemStates;

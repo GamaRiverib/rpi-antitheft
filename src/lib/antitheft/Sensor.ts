@@ -1,3 +1,5 @@
+import { SensorLocation } from "./SensorLocation";
+
 export enum SensorTypes {
     PIR_MOTION = 0,
     MAGNETIC_SWITCH = 1,
@@ -9,33 +11,6 @@ export enum SensorGroup {
     PERIMETER = 1,
     EXTERIOR = 2,
     ACCESS = 3
-}
-
-export class SensorLocation {
-    mac: string;
-    pin: number;
-
-    constructor(mac: string, pin: number) {
-        this.mac = mac;
-        this.pin = pin;
-    }
-
-    public static getSensorLocationFromData(data: any): SensorLocation {
-        if(data) {
-            return new SensorLocation(data.mac || '', data.pin || 0);
-        }
-        return new SensorLocation('', 0);
-    }
-
-    public static equals(one: SensorLocation, two: SensorLocation): boolean {
-        if(one.mac != two.mac) {
-            return false;
-        }
-        if(one.pin != two.pin) {
-            return false;
-        }
-        return true;
-    }
 }
 
 export class Sensor {
@@ -58,12 +33,12 @@ export class Sensor {
 
     public static getSensorFromData(data: any): Sensor {
         if(data) {
-            let location = SensorLocation.getSensorLocationFromData(data.location);
+            const location = SensorLocation.getSensorLocationFromData(data.location);
             return new Sensor(
-                location, 
-                data.type || SensorTypes.MAGNETIC_SWITCH, 
+                location,
+                data.type || SensorTypes.MAGNETIC_SWITCH,
                 data.name || `SensorWebSocket ${this.INSTANCE_COUNTER++}`,
-                data.group || SensorGroup.PERIMETER, 
+                data.group || SensorGroup.PERIMETER,
                 data.chime || '');
         }
         return new Sensor(
@@ -72,5 +47,4 @@ export class Sensor {
             `Sensor ${this.INSTANCE_COUNTER++}`,
             SensorGroup.EXTERIOR);
     }
-
 }

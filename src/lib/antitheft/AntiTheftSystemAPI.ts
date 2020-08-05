@@ -1,4 +1,5 @@
-import { Sensor, SensorLocation } from "./Sensor";
+import { Sensor } from "./Sensor";
+import { SensorLocation } from "./SensorLocation";
 import { AntiTheftSystemArmedModes } from "./AntiTheftSystemArmedModes";
 import { AntiTheftSystemResponse } from "./AntiTheftSystemResponse";
 import { SystemState } from "./SystemState";
