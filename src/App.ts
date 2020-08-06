@@ -1,13 +1,13 @@
-import { Server } from 'http';
-import winston = require('winston');
-import express = require('express');
-import { Application, Request, Response, NextFunction } from 'express';
-import { getLogger } from './lib/utils/Logger';
-import { ConfigController, SystemController } from './controllers';
-import { AntiTheftSystem } from './lib/antitheft/AntiTheftSystem';
-import { WebSocketChannel } from './lib/antitheft/channels/WebSocketChannel';
-import { MqttChannel } from './lib/antitheft/channels/MqttChannel';
-import { CloudChannel } from './lib/antitheft/channels/CloudChannel';
+// import { Server } from "http";
+import winston = require("winston");
+import express = require("express");
+import { Application, Request, Response, NextFunction } from "express";
+import { getLogger } from "./lib/utils/Logger";
+import { ConfigController, SystemController } from "./controllers";
+import { AntiTheftSystem } from "./lib/antitheft/AntiTheftSystem";
+import { WebSocketChannel } from "./lib/antitheft/channels/WebSocketChannel";
+import { MqttChannel } from "./lib/antitheft/channels/MqttChannel";
+import { CloudChannel } from "./lib/antitheft/channels/CloudChannel";
 
 const logger: winston.Logger = getLogger("APP");
 
@@ -19,14 +19,15 @@ const ats = AntiTheftSystem.getInstance();
 // GsmChannel.start(ats);
 
 // Web Sockets channel start
-const wsChannel: WebSocketChannel = WebSocketChannel.start(ats, new Server(app));
-ats.addWebSocketChannel(wsChannel);
+// const wsChannel: WebSocketChannel = WebSocketChannel.start(ats, new Server(app));
+// ats.addWebSocketChannel(wsChannel);
 
 // MQTT channel start
-MqttChannel.start(ats);
+const mqttChannel: MqttChannel = MqttChannel.start(ats);
+ats.addMqttChannel(mqttChannel);
 
 // Cloud channel (Firebase)
-CloudChannel.start(ats);
+// CloudChannel.start(ats);
 
 // Bluetooth channel start
 // BluetoothChannel.start(ats);
@@ -57,6 +58,7 @@ async function terminate(): Promise<void> {
       // GsmChannel.stop();
       WebSocketChannel.stop();
       MqttChannel.stop();
+      CloudChannel.stop();
       ats.stop();
       // BluetoothChannel.stop();
       process.exit(0);

@@ -1,30 +1,30 @@
-import { EventEmitter } from 'events';
+import { EventEmitter } from "events";
 
-import winston = require('winston');
+import winston = require("winston");
 
-import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
-import { Sensor } from '../Sensor';
-import { SensorLocation } from '../SensorLocation';
+import { AntiTheftSystemAPI } from "../AntiTheftSystemAPI";
+import { Sensor } from "../Sensor";
+import { SensorLocation } from "../SensorLocation";
 
-import { AntiTheftSystemEvents, AntiTheftSystemEventData, SensorActivedEventData, ClientEventData } from '../AntiTheftSystemEvents';
+import { AntiTheftSystemEvents, AntiTheftSystemEventData, SensorActivedEventData, ClientEventData } from "../AntiTheftSystemEvents";
 
-import { Conversions } from '../../utils/Conversions';
+import { Conversions } from "../../utils/Conversions";
 
-import { Server } from 'http';
+import { Server } from "http";
 
-import * as io from 'socket.io';
-import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
-import { AntiTheftSystemConfig } from '../AntiTheftSystemConfig';
-import { AntiTheftSystemErrors } from '../AntiTheftSystemErrors';
-import { getLogger } from '../../utils/Logger';
+import * as io from "socket.io";
+import { AntiTheftSystemResponse } from "../AntiTheftSystemResponse";
+import { AntiTheftSystemConfig } from "../AntiTheftSystemConfig";
+import { AntiTheftSystemErrors } from "../AntiTheftSystemErrors";
+import { getLogger } from "../../utils/Logger";
 
 export class WebSocketChannleEvents {
-    public static readonly WEBSOCKET_CLIENT_CONNECTED = 'WEBSOCKET_CLIENT_CONNECTED';
-    public static readonly WEBSOCKET_CLIENT_DISCONNECTED = 'WEBSOCKET_CLIENT_DISCONNECTED';
-    public static readonly NOT_AUTHORIZED_WEBSOCKET_CLIENT = 'NOT_AUTHORIZED_WEBSOCKET_CLIENT';
-    public static readonly AUTHORIZED_WEBSOCKET_CLIENT = 'AUTHORIZED_WEBSOCKET_CLIENT';
-    public static readonly WEBSOCKET_CLIENT_STATE = 'WEBSOCKET_CLIENT_STATE';
-    public static readonly WEBSOCKET_CLIENT_COMMAND = 'WEBSOCKET_CLIENT_COMMAND';
+    public static readonly WEBSOCKET_CLIENT_CONNECTED = "WEBSOCKET_CLIENT_CONNECTED";
+    public static readonly WEBSOCKET_CLIENT_DISCONNECTED = "WEBSOCKET_CLIENT_DISCONNECTED";
+    public static readonly NOT_AUTHORIZED_WEBSOCKET_CLIENT = "NOT_AUTHORIZED_WEBSOCKET_CLIENT";
+    public static readonly AUTHORIZED_WEBSOCKET_CLIENT = "AUTHORIZED_WEBSOCKET_CLIENT";
+    public static readonly WEBSOCKET_CLIENT_STATE = "WEBSOCKET_CLIENT_STATE";
+    public static readonly WEBSOCKET_CLIENT_COMMAND = "WEBSOCKET_CLIENT_COMMAND";
 }
 
 export interface StateEventData {
@@ -44,13 +44,13 @@ export interface WebSocketChannelEventData<T> {
 }
 
 export const ProtocolMesssages = {
-    Time: 'Time',
-    Events: 'Events',
-    Sensors: 'Sensors',
-    is: 'is',
-    Who: 'Who',
-    state: 'state',
-    command: 'command'
+    Time: "Time",
+    Events: "Events",
+    Sensors: "Sensors",
+    is: "is",
+    Who: "Who",
+    state: "state",
+    command: "command"
 };
 
 // tslint:disable-next-line: max-classes-per-file
@@ -72,7 +72,7 @@ export class WebSocketChannel {
 
     private constructor(private ats: AntiTheftSystemAPI, private server: Server) {
 
-        this.logger = getLogger('WebSocketChannel');
+        this.logger = getLogger("WebSocketChannel");
 
         this.configureEventsId();
         this.configureSensors();
@@ -81,7 +81,7 @@ export class WebSocketChannel {
 
         this.socket = io.listen(this.server);
 
-        this.socket.on('connection', this.onConnectionEventHandler.bind(this));
+        this.socket.on("connection", this.onConnectionEventHandler.bind(this));
 
         this.setupAtsEvents();
 
@@ -180,18 +180,18 @@ export class WebSocketChannel {
         this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_CONNECTED, { webSocketClientId: ws.id });
         ws.emit(ProtocolMesssages.Time, Math.round(Date.now() / 1000.0));
         ws.on(ProtocolMesssages.is, (data: any) => this.onIsEventHandler.call(this, ws, data));
-        setTimeout(() => ws.emit(ProtocolMesssages.Who, ''), 1000);
-        /* ws.on('disconnect', () => {
-            this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, { webSocketClientId: ws.id, clientId: 'Unknown' });
+        setTimeout(() => ws.emit(ProtocolMesssages.Who, ""), 1000);
+        /* ws.on("disconnect", () => {
+            this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_DISCONNECTED, { webSocketClientId: ws.id, clientId: "Unknown" });
             ws.emit(ProtocolMesssages.Time, Math.round(Date.now() / 1000.0));
-            setTimeout(() => ws.emit(ProtocolMesssages.Who, ''), 2000);
+            setTimeout(() => ws.emit(ProtocolMesssages.Who, ""), 2000);
         }); */
     }
 
     private onIsEventHandler(ws: io.Socket, data: any): void {
-        const mac: string = data.mac ? data.mac : '';
-        const clientId: string = data.clientId ? data.clientId.toString() : '';
-        const token: string = data.code ? data.code.toString() : '';
+        const mac: string = data.mac ? data.mac : "";
+        const clientId: string = data.clientId ? data.clientId.toString() : "";
+        const token: string = data.code ? data.code.toString() : "";
 
         const result: AntiTheftSystemResponse<void> = this.ats.validateClient(clientId, token);
 
@@ -211,7 +211,7 @@ export class WebSocketChannel {
         ws.emit(ProtocolMesssages.Events, this.eventsId);
 
         // ws.emit(ProtocolMesssages.Sensors, this.sensors);
-        // let updateTimeInterval: NodeJS.Timer = setInterval(() => ws.emit('Time', Math.round(Date.now() / 1000.0)), 60000 * 30) // 30 minutes
+        // let updateTimeInterval: NodeJS.Timer = setInterval(() => ws.emit("Time", Math.round(Date.now() / 1000.0)), 60000 * 30) // 30 minutes
         // if sensor client
         ws.on(ProtocolMesssages.state, (stateEventData: { sensors: any[]; }) => {
             if(stateEventData.sensors && Array.isArray(stateEventData.sensors)) {
@@ -230,7 +230,7 @@ export class WebSocketChannel {
 
         ws.on(ProtocolMesssages.command, (commandEventData: any) => {
             // TODO: send command to ats
-            console.log('command => ', commandEventData);
+            console.log("command => ", commandEventData);
             const eventData: WebSocketChannelEventData<any> = {
                 webSocketClientId: ws.id,
                 clientId,
@@ -239,7 +239,7 @@ export class WebSocketChannel {
             this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_COMMAND, eventData);
         });
 
-        ws.on('disconnect', () => {
+        ws.on("disconnect", () => {
             // clearInterval(updateTimeInterval);
             let index: number;
             this.onlineClients.forEach((client: {wsId: string, clientId: string, mac: string}, i: number) => {
@@ -300,25 +300,25 @@ export class WebSocketChannel {
     }
 
     private getPayload(data: AntiTheftSystemEventData): string {
-        let payload = '';
+        let payload = "";
         const systemState = data.system;
         if(systemState) {
             payload = `${systemState.state}${systemState.mode || 0}`;
             if (systemState.leftTime > 0) {
                 const leftTimeout = Math.round((systemState.leftTime - systemState.uptime) / 1000);
-                payload += Conversions.leftpad(leftTimeout.toString(32).toUpperCase(), 2, '0');
+                payload += Conversions.leftpad(leftTimeout.toString(32).toUpperCase(), 2, "0");
             } else {
-                payload += '00';
+                payload += "00";
             }
             if(systemState.activedSensors.length > 0) {
-                payload += Conversions.leftpad(systemState.activedSensors.length.toString(32).toUpperCase(), 2, '0');
+                payload += Conversions.leftpad(systemState.activedSensors.length.toString(32).toUpperCase(), 2, "0");
             } else {
-                payload += '00';
+                payload += "00";
             }
             systemState.activedSensors.forEach((sensor: Sensor) => {
                 this.sensors.forEach((s: Sensor, i: number) => {
                     if(SensorLocation.equals(s.location, sensor.location)) {
-                        payload += Conversions.leftpad(i.toString(32).toUpperCase(), 2, '0');
+                        payload += Conversions.leftpad(i.toString(32).toUpperCase(), 2, "0");
                         return;
                     }
                 });

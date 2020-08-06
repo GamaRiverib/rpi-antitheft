@@ -1,6 +1,6 @@
-import { EventEmitter } from 'events';
-import { AntiTheftSystemEventData, AntiTheftSystemEvents } from '../AntiTheftSystemEvents';
-import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
+import { EventEmitter } from "events";
+import { AntiTheftSystemEventData, AntiTheftSystemEvents } from "../AntiTheftSystemEvents";
+import { AntiTheftSystemAPI } from "../AntiTheftSystemAPI";
 
 export interface MaxUnAuthorizedIntentsEventData {
     intents: Date[]

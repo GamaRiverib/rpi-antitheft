@@ -1,7 +1,7 @@
-import { EventEmitter } from 'events';
-import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
-import { AntiTheftSystemEventData, AntiTheftSystemEvents } from '../AntiTheftSystemEvents';
-import { Sensor } from '../Sensor';
+import { EventEmitter } from "events";
+import { AntiTheftSystemAPI } from "../AntiTheftSystemAPI";
+import { AntiTheftSystemEventData, AntiTheftSystemEvents } from "../AntiTheftSystemEvents";
+import { Sensor } from "../Sensor";
 
 export interface SensorAlert {
     sensor: Sensor;

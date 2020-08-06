@@ -1,14 +1,14 @@
-import * as winston from 'winston';
-import * as DailyRotateFile from 'winston-daily-rotate-file';
+import * as winston from "winston";
+import * as DailyRotateFile from "winston-daily-rotate-file";
 // Imports the Google Cloud client library for Winston
-// import { LoggingWinston } from '@google-cloud/logging-winston';
+// import { LoggingWinston } from "@google-cloud/logging-winston";
 
 const level = process.env.LOGGER_LEVEL || "debug";
 
 const { combine, timestamp, printf, label } = winston.format;
+const dateFormat = process.env.LOGGER_DATE_FORMAT || "YYYY/MM/DD HH:mm:ss";
+const logsPath = process.env.LOGGER_FILES_PATH || "./logs";
 const logFormat = printf(m => `[${m.level}] [${m.label}] ${m.message}\t${m.data ? JSON.stringify(m.data) : ""}`);
-const dateFormat = 'YYYY/MM/DD HH:mm:ss';
-const logsPath = './logs';
 
 // type CONSOLE_LEVELS = "silly" | "input" | "verbose" | "prompt" | "debug" | "info" | "data" | "help" | "warn" | "error";
 

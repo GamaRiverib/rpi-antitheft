@@ -5,6 +5,7 @@ import { AntiTheftSystemResponse } from "./AntiTheftSystemResponse";
 import { SystemState } from "./SystemState";
 import { AntiTheftSystemConfig } from "./AntiTheftSystemConfig";
 import { WebSocketChannel } from "./channels/WebSocketChannel";
+import { MqttChannel } from "./channels/MqttChannel";
 
 export interface AntiTheftSystemAPI {
     on(event: string, listener: (... args: any[]) => void): void;
@@ -21,6 +22,7 @@ export interface AntiTheftSystemAPI {
     validateClient(clientId: string, token: string): AntiTheftSystemResponse<void>;
 
     addWebSocketChannel(channel: WebSocketChannel): void;
+    addMqttChannel(channel: MqttChannel): void;
 }
 
 export interface AntiTheftSystemProgrammingAPI {

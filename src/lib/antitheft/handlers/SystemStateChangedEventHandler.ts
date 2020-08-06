@@ -1,5 +1,5 @@
-import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
-import { AntiTheftSystemEvents, AntiTheftSystemEventData } from '../AntiTheftSystemEvents';
+import { AntiTheftSystemAPI } from "../AntiTheftSystemAPI";
+import { AntiTheftSystemEvents, AntiTheftSystemEventData } from "../AntiTheftSystemEvents";
 
 export class SystemStateChangedEventHandler {
 

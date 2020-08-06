@@ -1,12 +1,12 @@
 
-import winston = require('winston');
-import { AntiTheftSystemAPI } from '../AntiTheftSystemAPI';
-import { app, credential, initializeApp, messaging } from 'firebase-admin';
-import { AntiTheftSystemEvents, AntiTheftSystemEventData } from '../AntiTheftSystemEvents';
-import { getLogger } from '../../utils/Logger';
-import { AntiTheftSystemStates } from '../AntiTheftSystemStates';
-import { SystemState } from '../SystemState';
-import { AntiTheftSystemResponse } from '../AntiTheftSystemResponse';
+import winston = require("winston");
+import { AntiTheftSystemAPI } from "../AntiTheftSystemAPI";
+import { app, credential, initializeApp, messaging } from "firebase-admin";
+import { AntiTheftSystemEvents, AntiTheftSystemEventData } from "../AntiTheftSystemEvents";
+import { getLogger } from "../../utils/Logger";
+import { AntiTheftSystemStates } from "../AntiTheftSystemStates";
+import { SystemState } from "../SystemState";
+import { AntiTheftSystemResponse } from "../AntiTheftSystemResponse";
 
 const serviceAccount: string = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 const projectId: string = process.env.GOOGLE_PROJECT_ID;
@@ -24,7 +24,7 @@ export class CloudChannel {
     private messagingService: messaging.Messaging = null;
 
     private constructor(private ats: AntiTheftSystemAPI) {
-        this.logger = getLogger('CloudChannel');
+        this.logger = getLogger("CloudChannel");
         this.cloudClient = initializeApp({
             credential: credential.cert(serviceAccount),
             projectId
@@ -94,177 +94,177 @@ export class CloudChannel {
     }
 
     private sendStartupNotification(system: SystemState): void {
-        const topic: string = 'ats';
+        const topic: string = "ats";
         const payload: messaging.MessagingPayload = {
             data: {
                 system: JSON.stringify(system)
             },
             notification: {
-                title: 'Antitheft System',
+                title: "Antitheft System",
                 body: `[${this.getServerDateTimeString()}] Startup...`,
-                color: '#FFFF00'
+                color: "#FFFF00"
             }
         };
-        const options: messaging.MessagingOptions = { priority: 'high' };
+        const options: messaging.MessagingOptions = { priority: "high" };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log('Startup Notification', resp.messageId);
+                console.log("Startup Notification", resp.messageId);
             })
             .catch((reason: any) => {
-                this.logger.error('Error Send Notification', { data: { error: reason, system } });
+                this.logger.error("Error Send Notification", { data: { error: reason, system } });
         });
     }
 
     private sendNotificationAlarmed(data: AntiTheftSystemEventData): void {
-        console.log('Send notification for Alarmed');
-        const topic: string = 'ats';
+        console.log("Send notification for Alarmed");
+        const topic: string = "ats";
         const payload: messaging.MessagingPayload = {
             data: {
                 system: JSON.stringify(data.system)
             },
             notification: {
-                title: 'Antitheft System',
+                title: "Antitheft System",
                 body: `[${this.getServerDateTimeString()}] SYSTEM ALARMED`,
-                color: '#FF0000'
+                color: "#FF0000"
             }
         };
-        const options: messaging.MessagingOptions = { priority: 'high' };
+        const options: messaging.MessagingOptions = { priority: "high" };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log('Alarmed Notification', resp.messageId);
+                console.log("Alarmed Notification", resp.messageId);
             })
             .catch((reason: any) => {
-                this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
+                this.logger.error("Error Send Notification", { data: { error: reason, system: data.system } });
         });
     }
 
     private sendNotificationArmed(data: AntiTheftSystemEventData): void {
-        console.log('Send notification for Armed');
-        const topic: string = 'ats';
+        console.log("Send notification for Armed");
+        const topic: string = "ats";
         const payload: messaging.MessagingPayload = {
             data: {
                 system: JSON.stringify(data.system)
             },
             notification: {
-                title: 'Antitheft System',
+                title: "Antitheft System",
                 body: `[${this.getServerDateTimeString()}] System Armed`,
-                color: '#00FF00'
+                color: "#00FF00"
             }
         };
-        const options: messaging.MessagingOptions = { priority: 'normal' };
+        const options: messaging.MessagingOptions = { priority: "normal" };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log('Armed Notification', resp.messageId);
+                console.log("Armed Notification", resp.messageId);
             })
             .catch((reason: any) => {
-                this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
+                this.logger.error("Error Send Notification", { data: { error: reason, system: data.system } });
         });
     }
 
     private sendNotificationDisarmed(data: AntiTheftSystemEventData): void {
-        console.log('Send notification for Disarmed');
-        const topic: string = 'ats';
+        console.log("Send notification for Disarmed");
+        const topic: string = "ats";
         const payload: messaging.MessagingPayload = {
             data: {
                 system: JSON.stringify(data.system)
             },
             notification: {
-                title: 'Antitheft System',
+                title: "Antitheft System",
                 body: `[${this.getServerDateTimeString()}] System Disarmed`,
-                color: '#00FF00'
+                color: "#00FF00"
             }
         };
-        const options: messaging.MessagingOptions = { priority: 'normal' };
+        const options: messaging.MessagingOptions = { priority: "normal" };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log('Disarmed Notification', resp.messageId);
+                console.log("Disarmed Notification", resp.messageId);
             })
             .catch((reason: any) => {
-                this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
+                this.logger.error("Error Send Notification", { data: { error: reason, system: data.system } });
         });
     }
 
     private sendNotificationStateChanged(data: AntiTheftSystemEventData): void {
         const state: AntiTheftSystemStates = data.system.state;
-        const topic: string = 'ats';
+        const topic: string = "ats";
         const payload: messaging.MessagingPayload = {
             data: {
                 system: JSON.stringify(data.system)
             },
-            notification: { title: 'Antitheft System' }
+            notification: { title: "Antitheft System" }
         };
-        const options: messaging.MessagingOptions = { priority: 'normal' };
+        const options: messaging.MessagingOptions = { priority: "normal" };
         switch(state) {
             case AntiTheftSystemStates.LEAVING:
-                console.log('Send notification for Leaving');
+                console.log("Send notification for Leaving");
                 payload.notification.body = `[${this.getServerDateTimeString()}] Leaving`;
-                payload.notification.color = '#0000FF';
+                payload.notification.color = "#0000FF";
                 this.messagingService.sendToTopic(topic, payload, options)
                     .then((resp: messaging.MessagingTopicResponse) => {
-                        console.log('Leaving Notification', resp.messageId);
+                        console.log("Leaving Notification", resp.messageId);
                     })
                     .catch((reason: any) => {
-                        this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
+                        this.logger.error("Error Send Notification", { data: { error: reason, system: data.system } });
                 });
                 break;
             case AntiTheftSystemStates.ENTERING:
-                console.log('Send notification for Entering');
+                console.log("Send notification for Entering");
                 payload.notification.body = `[${this.getServerDateTimeString()}] Entering`;
-                payload.notification.color = '#FFFF00';
+                payload.notification.color = "#FFFF00";
                 this.messagingService.sendToTopic(topic, payload, options)
                     .then((resp: messaging.MessagingTopicResponse) => {
-                        console.log('Entering Notification', resp.messageId);
+                        console.log("Entering Notification", resp.messageId);
                     })
                     .catch((reason: any) => {
-                        this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
+                        this.logger.error("Error Send Notification", { data: { error: reason, system: data.system } });
                 });
                 break;
         }
     }
 
     private sendNotificationMaxAlerts(data: AntiTheftSystemEventData): void {
-        console.log('Send notification for Max Alerts');
-        const topic: string = 'ats';
+        console.log("Send notification for Max Alerts");
+        const topic: string = "ats";
         const payload: messaging.MessagingPayload = {
             data: {
                 system: JSON.stringify(data.system)
             },
             notification: {
-                title: 'Antitheft System',
+                title: "Antitheft System",
                 body: `[${this.getServerDateTimeString()}] WARNING MAX ALERTS`,
-                color: '#FFFF00'
+                color: "#FFFF00"
             }
         };
-        const options: messaging.MessagingOptions = { priority: 'high' };
+        const options: messaging.MessagingOptions = { priority: "high" };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log('Max Alerts', resp.messageId);
+                console.log("Max Alerts", resp.messageId);
             })
             .catch((reason: any) => {
-                this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
+                this.logger.error("Error Send Notification", { data: { error: reason, system: data.system } });
         });
     }
 
     private sendNotificationUnauthorizedIntents(data: AntiTheftSystemEventData): void {
-        console.log('Send notification for Unauthorized Intents');
-        const topic: string = 'ats';
+        console.log("Send notification for Unauthorized Intents");
+        const topic: string = "ats";
         const payload: messaging.MessagingPayload = {
             data: {
                 system: JSON.stringify(data.system)
             },
             notification: {
-                title: 'Antitheft System',
+                title: "Antitheft System",
                 body: `[${this.getServerDateTimeString()}] Warning max unauthorized intents`,
-                color: '#FFFF00'
+                color: "#FFFF00"
             }
         };
-        const options: messaging.MessagingOptions = { priority: 'normal' };
+        const options: messaging.MessagingOptions = { priority: "normal" };
         this.messagingService.sendToTopic(topic, payload, options)
             .then((resp: messaging.MessagingTopicResponse) => {
-                console.log('Max Unauthorized Notification', resp.messageId);
+                console.log("Max Unauthorized Notification", resp.messageId);
             })
             .catch((reason: any) => {
-                this.logger.error('Error Send Notification', { data: { error: reason, system: data.system } });
+                this.logger.error("Error Send Notification", { data: { error: reason, system: data.system } });
         });
     }
 

@@ -9,9 +9,9 @@ export class SensorLocation {
 
     public static getSensorLocationFromData(data: any): SensorLocation {
         if(data) {
-            return new SensorLocation(data.mac || '', data.pin || 0);
+            return new SensorLocation(data.mac || "", data.pin || 0);
         }
-        return new SensorLocation('', 0);
+        return new SensorLocation("", 0);
     }
 
     public static equals(one: SensorLocation, two: SensorLocation): boolean {
