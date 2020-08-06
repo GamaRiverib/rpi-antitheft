@@ -29,5 +29,8 @@ export interface AntiTheftSystemConfig {
         admin?: string
     },
     systemWasAlarmed: boolean;
-    clients: { [id: string]: string };
+    clients: { [id: string]: {
+        secret: string,
+        mac?: string
+    } };
 }

@@ -1,7 +1,8 @@
 import winston = require("winston");
 import { Conversions } from "./Conversions";
 import { randomBytes } from "crypto";
-import jsSHA from "jssha";
+// tslint:disable-next-line: no-var-requires
+const jsSHA = require("jssha");
 
 import { getLogger } from "./Logger";
 
@@ -27,7 +28,7 @@ export class Otp {
             };
 
             const time = Conversions.leftpad(Conversions.decimalToHexadecimal(Math.floor(opts.epoch / opts.step)), 16, "0");
-            const sha = new jsSHA("SHA-1", "HEX");
+            const sha = new jsSHA(opts.algorithm, "HEX");
             sha.setHMACKey(key, "HEX");
             sha.update(time);
             const hmac = sha.getHMAC("HEX");
@@ -37,6 +38,7 @@ export class Otp {
             totp = (totp).substr(totp.length - opts.digits, opts.digits);
             return totp;
         } catch(e) {
+            console.error(e);
             logger.error(e);
             return "";
         }
@@ -61,6 +63,7 @@ export class Otp {
         if(totp === "") {
             return false;
         }
+        logger.debug(`TOTP: ${totp} - Token: ${token}`);
         return totp === token;
     }
 }

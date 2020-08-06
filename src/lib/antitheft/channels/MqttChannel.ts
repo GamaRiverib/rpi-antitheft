@@ -166,7 +166,7 @@ export class MqttChannel {
     private onSystemEventHandler(eventId: string, data: AntiTheftSystemEventData): void {
         const event = this.eventsId[eventId];
         if(event) {
-            const topic: string = `${MQTT_TOPIC}/events/${eventId}`;
+            const topic: string = `${MQTT_TOPIC}/state/${eventId}`;
             this.mqttClient.publish(topic, JSON.stringify(data.system), { qos: 1 });
         }
     }
@@ -207,27 +207,29 @@ export class MqttChannel {
     }
 
     private handleCommand(device: string, command: string, id: string, params?: any): void {
-        this.logger.info("Recieve command", { data: { command, id, params } });
+        this.logger.debug("Recieve command", { data: { command, id, params } });
         if (command === "state") {
             const response: AntiTheftSystemResponse<SystemState> = this.ats.getState();
             const state: SystemState = response.data;
-            this.mqttClient.publish(`${MQTT_TOPIC}/response/${id}`, JSON.stringify(state), { qos: 1 });
+            this.mqttClient.publish(`${MQTT_TOPIC}/devices/${device}/response/${id}`, JSON.stringify(state), { qos: 1 });
         } else if(command === "time") {
             const time: number = Math.round(Date.now() / 1000.0);
-            this.mqttClient.publish(`${MQTT_TOPIC}/response/${id}`, time.toString(), { qos: 1 });
+            this.mqttClient.publish(`${MQTT_TOPIC}/devices/${device}/response/${id}`, time.toString(), { qos: 1 });
         } else if (command === "arm") {
             try {
-                if (params && params.token && params.mode && params.code) {
+                if (params && params.token && Number.isInteger(params.mode)) {
                     let result: AntiTheftSystemResponse<void> = this.ats.validateClient(device, params.token);
                     if(result.success) {
-                        if(Number.isInteger(params.mode)) {
-                            result = this.ats.arm(params.mode, params.code);
-                            this.mqttClient.publish(`${MQTT_TOPIC}/response/${id}`, result.success.toString().toUpperCase(), { qos: 0 });
-                        }
+                        result = this.ats.arm(params.mode, params.code);
+                        this.mqttClient.publish(`${MQTT_TOPIC}/devices/${device}/response/${id}`, result.success.toString().toUpperCase(), { qos: 0 });
+                    } else {
+                        this.logger.warn("Invalid client", { data: { result, device, params } });
                     }
+                } else {
+                    this.logger.warn("Missing params", { data: { params } });
                 }
             } catch(e) {
-                console.log("[ERROR]", e);
+                this.logger.warn(e);
             }
         } else if (command === "disarm") {
             try {
@@ -235,36 +237,50 @@ export class MqttChannel {
                     let result: AntiTheftSystemResponse<void> = this.ats.validateClient(device, params.token);
                     if(result.success) {
                         result = this.ats.disarm(params.code);
-                        this.mqttClient.publish(`${MQTT_TOPIC}/response/${id}`, result.success.toString().toUpperCase(), { qos: 0 });
+                        this.mqttClient.publish(`${MQTT_TOPIC}/devices/${device}/response/${id}`, result.success.toString().toUpperCase(), { qos: 0 });
+                    } else {
+                        this.logger.warn("Invalid client", { data: { result, device, params } });
                     }
+                } else {
+                    this.logger.warn("Missing params", { data: { params } });
                 }
             } catch(e) {
-                console.log("[ERROR]", e);
+                this.logger.warn(e);
             }
         } else if (command === "bypass") {
             try {
-                if (params && params.token && params.location && params.code) {
+                if (params && params.token && params.location) {
                     let result: AntiTheftSystemResponse<void> = this.ats.validateClient(device, params.token);
                     if(result.success) {
                         result = this.ats.bypassOne(params.location, params.code);
-                        this.mqttClient.publish(`${MQTT_TOPIC}/response/${id}`, result.success.toString().toUpperCase(), { qos: 0 });
+                        this.mqttClient.publish(`${MQTT_TOPIC}/devices/${device}/response/${id}`, result.success.toString().toUpperCase(), { qos: 0 });
+                    } else {
+                        this.logger.warn("Invalid client", { data: { result, device, params } });
                     }
+                } else {
+                    this.logger.warn("Missing params", { data: { params } });
                 }
             } catch(e) {
-                console.log("[ERROR]", e);
+                this.logger.warn(e);
             }
         } else if (command === "clearbypassone") {
             try {
-                if (params && params.token && params.location && params.code) {
+                if (params && params.token && params.location) {
                     let result: AntiTheftSystemResponse<void> = this.ats.validateClient(device, params.token);
                     if(result.success) {
                         result = this.ats.clearBypassOne(params.location, params.code);
-                        this.mqttClient.publish(`${MQTT_TOPIC}/response/${id}`, result.success.toString().toUpperCase(), { qos: 0 });
+                        this.mqttClient.publish(`${MQTT_TOPIC}/devices/${device}/response/${id}`, result.success.toString().toUpperCase(), { qos: 0 });
+                    } else {
+                        this.logger.warn("Invalid client", { data: { result, device, params } });
                     }
+                } else {
+                    this.logger.warn("Missing params", { data: { params } });
                 }
             } catch(e) {
-                console.log("[ERROR]", e);
+                this.logger.warn(e);
             }
+        } else {
+            this.logger.warn(`Command not implemented: ${command}`);
         }
     }
 
@@ -295,7 +311,7 @@ export class MqttChannel {
                     this.emitter.emit(MqttChannleEvents.CLIENT_DISCONNECTED, { device })
                 }
             } else if (posfix === "state") {
-                const states: [{ pin: number, value: 0|1 }] = JSON.parse(payload).sensors || [];
+                const states: [{ mac: string, pin: number, value: 0|1 }] = JSON.parse(payload).sensors || [];
                 this.emitter.emit(MqttChannleEvents.CLIENT_STATE, { device, states });
             } else if (posfix === "commands") {
                 const data: { command: string, id: string, params?: any } = JSON.parse(payload);

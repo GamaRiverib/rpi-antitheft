@@ -1,4 +1,4 @@
-// import { Server } from "http";
+import { Server } from "http";
 import winston = require("winston");
 import express = require("express");
 import { Application, Request, Response, NextFunction } from "express";
@@ -19,8 +19,8 @@ const ats = AntiTheftSystem.getInstance();
 // GsmChannel.start(ats);
 
 // Web Sockets channel start
-// const wsChannel: WebSocketChannel = WebSocketChannel.start(ats, new Server(app));
-// ats.addWebSocketChannel(wsChannel);
+const wsChannel: WebSocketChannel = WebSocketChannel.start(ats, new Server(app));
+ats.addWebSocketChannel(wsChannel);
 
 // MQTT channel start
 const mqttChannel: MqttChannel = MqttChannel.start(ats);

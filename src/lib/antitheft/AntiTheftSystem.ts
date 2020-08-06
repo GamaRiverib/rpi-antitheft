@@ -205,9 +205,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 emails: { owner: [] },
                 systemWasAlarmed: false,
                 clients: { // TODO: change defaults
-                    galaxys6: "79STCF7GW7Q64TLD",
-                    iphone6: "CHARVSV676S39NQJ",
-                    device8427624: "6GN2ITLOKDAEL2QN"
+                    galaxys6: { secret: "79STCF7GW7Q64TLD" },
+                    iphone6: { secret: "CHARVSV676S39NQJ" },
+                    device8427624: { secret: "6GN2ITLOKDAEL2QN" }
                 }
             };
             this.logger.info(`Saving configuration file with default values...`);
@@ -242,7 +242,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             }
         });
 
-        this.logger.info("AntiTheftSystem running with this configuration:", { data: this.config });
+        this.logger.info(JSON.stringify(this.config, null, "  "));
     }
 
     private setupSiren(): void {
@@ -433,7 +433,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     }
 
     private onMaxUnauthorizedIntentsEventHandler(data: MaxUnAuthorizedIntentsEventData): void {
-        console.log("Max Unauthorized Intents Event", data);
+        this.logger.warn("Max Unauthorized Intents Event", { data });
         // TODO: send push notification
         this.sendEmail(
             "Max unauthorized intents",
@@ -980,10 +980,10 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     }
     public validateClient(clientId: string, token: string): AntiTheftSystemResponse<void> {
         if (!this.config.clients[clientId]) {
-            console.log(`Client ${clientId} not exits`);
+            this.logger.warn(`Client ${clientId} not exits`, { data: { clientId } });
             return this.getErrorResponse<void>(AntiTheftSystemErrors.NOT_AUTHORIZED);
         }
-        const secret: string = this.config.clients[clientId];
+        const secret: string = this.config.clients[clientId].secret;
         const result: boolean = this.otpProvider.verify(token, secret);
         if (!result) {
             return this.getErrorResponse<void>(AntiTheftSystemErrors.NOT_AUTHORIZED);
@@ -1129,15 +1129,6 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 if(!this.clientIsOnline(eventData.clientId)) {
                     this.logger.warn("[WARN] Client is already online", { data: eventData });
                     this.onlineClients[eventData.clientId] = eventData.webSocketClientId;
-                    /*if(eventData.data.sensor && eventData.data.sensor.location) {
-                        this.config.sensors.forEach((s: Sensor) => {
-                            if (SensorLocation.equals(s.location, eventData.data.sensor.location)) {
-                                s.online = true;
-                                return;
-                            }
-                        });
-                    }
-                    this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);*/
                 }
                 if(this.onlineClients[eventData.clientId] !== eventData.webSocketClientId) {
                     this.logger.warn("[WARN] Bad web socket clientId", { data: eventData });
@@ -1150,6 +1141,7 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 this.config.sensors.forEach((sensor: Sensor) => {
                     if(SensorLocation.equals(sensor.location, location)) {
                         this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor, value: state.sensor.value });
+                        sensor.online = true;
                     }
                 });
             }
@@ -1234,15 +1226,16 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 if(this.clientIsOnline(clientId)) {
                     this.logger.warn("Client is already auth", { data: { clientId } });
                 }
-                // TODO: find device sensors and set online true
-                /*if(eventData.data && eventData.data.mac) {
-                    const mac = eventData.data.mac;
-                    this.config.sensors.forEach((s: Sensor) => {
-                        if (s.location.mac === mac) {
-                            s.online = true;
-                        }
-                    });
-                }*/
+                if (this.config.clients[clientId]) {
+                    const mac: string | undefined = this.config.clients[clientId].mac;
+                    if (mac) {
+                        this.config.sensors.forEach((s: Sensor) => {
+                            if (s.location.mac === mac) {
+                                s.online = true;
+                            }
+                        });
+                    }
+                }
                 this.onlineClients[clientId] = "??"; // TODO: ¡¡??
                 if (this.offlineClientsTimers[clientId]) {
                     this.offlineClientsTimers[clientId].unref();
@@ -1257,29 +1250,17 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         channel.on(MqttChannleEvents.CLIENT_DISCONNECTED, (eventData: { device: string }) => {
             const clientId: string = eventData.device;
             if(clientId) {
-                // TODO: find device sensors and set online false
-                /*if(eventData.data && eventData.data.mac) {
-                    const mac = eventData.data.mac;
-                    this.config.sensors.forEach((s: Sensor) => {
-                        if(s.location.mac === mac) {
-                            s.online = false;
-                        }
-                    });
-                }
-
-                const activatedSensorsOfClient: Sensor[] = [];
-                this.activatedSensors.forEach((s: Sensor, i: number) => {
-                    if (s.location.mac === eventData.data.mac) {
-                        activatedSensorsOfClient.push(s);
+                if (this.config.clients[clientId]) {
+                    const mac: string | undefined = this.config.clients[clientId].mac;
+                    if (mac) {
+                        this.config.sensors.forEach((s: Sensor) => {
+                            if (s.location.mac === mac) {
+                                s.online = false;
+                                this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor: s, value: 0 });
+                            }
+                        });
                     }
-                });
-
-                if(activatedSensorsOfClient.length > 0) {
-                    activatedSensorsOfClient.forEach((s: Sensor) => {
-                        this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor: s, value: 0 });
-                    });
-                }*/
-
+                }
                 if (this.offlineClientsTimers[clientId]) {
                     this.offlineClientsTimers[clientId].unref();
                     clearTimeout(this.offlineClientsTimers[clientId]);
@@ -1293,28 +1274,21 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
             }
         });
 
-        channel.on(MqttChannleEvents.CLIENT_STATE, (eventData: { device: string, states: [{ pin: number, value: 0|1 }] }) => {
+        channel.on(MqttChannleEvents.CLIENT_STATE, (eventData: { device: string, states: [{ mac: string, pin: number, value: 0|1 }] }) => {
             const clientId: string = eventData.device;
             if(clientId) {
                 if(!this.clientIsOnline(clientId)) {
                     this.logger.warn("[WARN] Client is already online", { data: eventData });
                     this.onlineClients[clientId] = "??"; // TODO: !!??
-                    /*if(eventData.data.sensor && eventData.data.sensor.location) {
-                        this.config.sensors.forEach((s: Sensor) => {
-                            if (SensorLocation.equals(s.location, eventData.data.sensor.location)) {
-                                s.online = true;
-                                return;
-                            }
-                        });
-                    }
-                    this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);*/
+                    this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, eventData);
                 }
-                const states: [{ pin: number, value: 0|1 }] = eventData.states;
-                states.forEach((state: {pin: number, value: 0|1}) => {
-                    const location: SensorLocation = SensorLocation.getSensorLocationFromData({ pin: state.pin });
+                const states: [{ mac: string, pin: number, value: 0|1 }] = eventData.states;
+                states.forEach((state: {mac: string, pin: number, value: 0|1}) => {
+                    const location: SensorLocation = SensorLocation.getSensorLocationFromData({ mac: state.mac, pin: state.pin });
                     this.config.sensors.forEach((sensor: Sensor) => {
                         if(SensorLocation.equals(sensor.location, location)) {
                             this.emitter.emit(AntiTheftSystemEvents.SENSOR_ACTIVED, { sensor, value: state.value });
+                            sensor.online = true;
                         }
                     });
                 });
@@ -1325,13 +1299,13 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
     stop(): void {
         this.saveConfig();
         if(this.fileWatcher) {
-            console.log("fileWatcher remove all listeners...");
+            this.logger.debug("fileWatcher remove all listeners...");
             this.fileWatcher.removeAllListeners();
             this.fileWatcher.close();
             this.fileWatcher = null;
         }
         for (const k of Object.keys(this.offlineClientsTimers)) {
-            console.log("unref ", k);
+            this.logger.debug(`unref > ${k}`);
             this.offlineClientsTimers[k].unref();
             clearTimeout(this.offlineClientsTimers[k]);
         }
