@@ -2,6 +2,7 @@ import { Server } from "http";
 import winston = require("winston");
 import express = require("express");
 import { Application, Request, Response, NextFunction } from "express";
+import cors = require("cors");
 import { getLogger } from "./lib/utils/Logger";
 import { ConfigController, SystemController } from "./controllers";
 import { AntiTheftSystem } from "./lib/antitheft/AntiTheftSystem";
@@ -34,6 +35,8 @@ ats.addMqttChannel(mqttChannel);
 
 // Before of any app.use
 app.enable("case sensitive routing");
+
+app.use(cors({ origin: true }));
 
 app.use(express.json());
 

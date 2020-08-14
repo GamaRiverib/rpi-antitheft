@@ -1226,8 +1226,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 if(this.clientIsOnline(clientId)) {
                     this.logger.warn("Client is already auth", { data: { clientId } });
                 }
+                let mac: string;
                 if (this.config.clients[clientId]) {
-                    const mac: string | undefined = this.config.clients[clientId].mac;
+                    mac = this.config.clients[clientId].mac;
                     if (mac) {
                         this.config.sensors.forEach((s: Sensor) => {
                             if (s.location.mac === mac) {
@@ -1242,7 +1243,10 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                     clearTimeout(this.offlineClientsTimers[clientId]);
                     delete this.offlineClientsTimers[clientId];
                 }
-                const clientEventData: ClientEventData = { clientId }; // TODO: mac?
+                const clientEventData: ClientEventData = { clientId };
+                if (mac) {
+                    clientEventData.mac = mac;
+                }
                 this.emitter.emit(AntiTheftSystemEvents.CLIENT_ONLINE, clientEventData);
             }
         });
@@ -1250,8 +1254,9 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         channel.on(MqttChannleEvents.CLIENT_DISCONNECTED, (eventData: { device: string }) => {
             const clientId: string = eventData.device;
             if(clientId) {
+                let mac: string;
                 if (this.config.clients[clientId]) {
-                    const mac: string | undefined = this.config.clients[clientId].mac;
+                    mac = this.config.clients[clientId].mac;
                     if (mac) {
                         this.config.sensors.forEach((s: Sensor) => {
                             if (s.location.mac === mac) {
@@ -1268,7 +1273,10 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
                 }
                 this.offlineClientsTimers[clientId] = setTimeout(() => {
                     delete this.onlineClients[clientId];
-                    const clientEventData: ClientEventData = { clientId }; // TODO: mac??
+                    const clientEventData: ClientEventData = { clientId };
+                    if (mac) {
+                        clientEventData.mac = mac;
+                    }
                     this.emitter.emit(AntiTheftSystemEvents.CLIENT_OFFLINE, clientEventData);
                 }, 25000);
             }
