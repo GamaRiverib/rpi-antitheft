@@ -1000,6 +1000,22 @@ export class AntiTheftSystem implements AntiTheftSystemAPI, AntiTheftSystemProgr
         return this.getSuccessResponse<AntiTheftSystemConfig>(this.config);
     }
 
+    public getCurrentConfig(): AntiTheftSystemResponse<AntiTheftSystemConfig> {
+        const currentState = this.config.state;
+        if(currentState !== AntiTheftSystemStates.PROGRAMMING) {
+            return this.getErrorResponse<AntiTheftSystemConfig>(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);
+        }
+        const config = JSON.parse(JSON.stringify(this.config));
+        delete config.bypass;
+        delete config.clients;
+        delete config.codes;
+        delete config.lookouted;
+        delete config.mode;
+        delete config.state;
+        delete config.systemWasAlarmed;
+        return this.getSuccessResponse<AntiTheftSystemConfig>(config);
+    }
+
     public bypassOne(location: SensorLocation, code?: string): AntiTheftSystemResponse<void> {
         if(this.config.state !== AntiTheftSystemStates.READY && this.config.state !== AntiTheftSystemStates.DISARMED) {
             return this.getErrorResponse<void>(AntiTheftSystemErrors.INVALID_SYSTEM_STATE);

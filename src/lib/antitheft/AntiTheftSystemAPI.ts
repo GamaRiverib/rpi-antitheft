@@ -64,4 +64,5 @@ export interface AntiTheftSystemProgrammingAPI {
     deleteOwnerEmail(index: number, code?: string): AntiTheftSystemResponse<void>;
     generateSecret(): AntiTheftSystemResponse<string>;
     validateClient(clientId: string, token: string): AntiTheftSystemResponse<void>;
+    getCurrentConfig(): AntiTheftSystemResponse<AntiTheftSystemConfig>;
 }

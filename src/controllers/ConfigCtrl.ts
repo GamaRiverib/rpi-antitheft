@@ -6,6 +6,7 @@ import { AntiTheftSystemResponse } from '../lib/antitheft/AntiTheftSystemRespons
 import { AntiTheftSystemErrors } from '../lib/antitheft/AntiTheftSystemErrors';
 import { Sensor } from '../lib/antitheft/Sensor';
 import { SensorLocation } from '../lib/antitheft/SensorLocation';
+import { AntiTheftSystemConfig } from '../lib/antitheft/AntiTheftSystemConfig';
 
 const antiTheftProgrammingAPI: AntiTheftSystemProgrammingAPI = AntiTheftSystem.getInstance();
 
@@ -18,6 +19,12 @@ export class ConfigController extends Controller {
     }
 
     routes(app: Application):void {
+        // Uptime
+        app.get(this.basePath + '/uptime', this.getUptime);
+
+        // Get configuration
+        app.get(this.basePath, this.validateClient, this.getConfig);
+
         // Configure user codes
         app.put(this.basePath + '/codes/guest', this.validateClient, this.setGuestCode);
         app.put(this.basePath + '/codes/owner', this.validateClient, this.setOwnerCode);
@@ -60,6 +67,10 @@ export class ConfigController extends Controller {
         app.get(this.basePath + '/secret', this.validateClient, this.generateSecret);
     }
 
+    private getUptime(req: Request, res: Response, next: NextFunction): void {
+        res.status(200).send({ uptime: Date.now() });
+    }
+
     private validateClient(req: Request, res: Response, next: NextFunction): void {
         if(!req.headers.authorization) {
             res.status(401).send();
@@ -77,6 +88,21 @@ export class ConfigController extends Controller {
         if(!result.success) {
             res.status(401).send();
             return;
+        }
+        next();
+    }
+
+    private getConfig(req: Request, res: Response, next: NextFunction): void {
+        const result: AntiTheftSystemResponse<AntiTheftSystemConfig> = antiTheftProgrammingAPI.getCurrentConfig();
+        if (result.success) {
+            const config: AntiTheftSystemConfig = JSON.parse(JSON.stringify(result.data));
+            res.status(200).send(config);
+        } else {
+            if (result.error === AntiTheftSystemErrors.INVALID_SYSTEM_STATE) {
+                res.status(409).send();
+            } else {
+                res.status(400).send({ error: result.error });
+            }
         }
         next();
     }
@@ -437,7 +463,8 @@ export class ConfigController extends Controller {
         if (!req.body.phone) {
             res.status(400).send();
         } else {
-            const result: AntiTheftSystemResponse<void> = antiTheftProgrammingAPI.updateOwnerPhone(req.body.index, req.body.phone, req.body.code);
+            const index = parseInt(req.params.index, 10);
+            const result: AntiTheftSystemResponse<void> = antiTheftProgrammingAPI.updateOwnerPhone(index, req.body.phone, req.body.code);
             if (result.success) {
                 res.status(204).send();
             } else {
@@ -454,7 +481,8 @@ export class ConfigController extends Controller {
     }
 
     private deleteOwnerPhone(req: Request, res: Response, next: NextFunction): void {
-        const result: AntiTheftSystemResponse<void> = antiTheftProgrammingAPI.deleteOwnerPhone(req.body.index, req.body.code);
+        const index = parseInt(req.params.index, 10);
+        const result: AntiTheftSystemResponse<void> = antiTheftProgrammingAPI.deleteOwnerPhone(index, req.body.code);
         if (result.success) {
             res.status(204).send();
         } else {
@@ -557,7 +585,8 @@ export class ConfigController extends Controller {
         if (!req.body.email) {
             res.status(400).send();
         } else {
-            const result: AntiTheftSystemResponse<void> = antiTheftProgrammingAPI.updateOwnerEmail(req.body.index, req.body.email, req.body.code);
+            const index = parseInt(req.params.index, 10);
+            const result: AntiTheftSystemResponse<void> = antiTheftProgrammingAPI.updateOwnerEmail(index, req.body.email, req.body.code);
             if (result.success) {
                 res.status(204).send();
             } else {
@@ -574,7 +603,8 @@ export class ConfigController extends Controller {
     }
 
     private deleteOwnerEmail(req: Request, res: Response, next: NextFunction): void {
-        const result: AntiTheftSystemResponse<void> = antiTheftProgrammingAPI.deleteOwnerEmail(req.body.index, req.body.code);
+        const index = parseInt(req.params.index, 10);
+        const result: AntiTheftSystemResponse<void> = antiTheftProgrammingAPI.deleteOwnerEmail(index, req.body.code);
         if (result.success) {
             res.status(204).send();
         } else {
