@@ -63,7 +63,6 @@ export class Otp {
         if(totp === "") {
             return false;
         }
-        logger.debug(`TOTP: ${totp} - Token: ${token}`);
         return totp === token;
     }
 }
