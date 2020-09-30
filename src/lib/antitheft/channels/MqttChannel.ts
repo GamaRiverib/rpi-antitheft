@@ -95,7 +95,7 @@ export class MqttChannel {
         const mqttOpts: IClientOptions = {
             clean: false,
             clientId: MQTT_CLIENT_ID,
-            // protocol: "ws",
+            protocol: "mqtt",
             username: MQTT_USER,
             password: MQTT_PASS,
             reconnectPeriod: 5 * 1000,
