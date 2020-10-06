@@ -1,4 +1,4 @@
-import { Server } from "http";
+import { Server, createServer } from "http";
 import winston = require("winston");
 import express = require("express");
 import { Application, Request, Response, NextFunction } from "express";
@@ -14,13 +14,15 @@ const logger: winston.Logger = getLogger("APP");
 
 const app: Application = express();
 
+const server: Server = createServer(app);
+
 const ats = AntiTheftSystem.getInstance();
 
 // Gsm channel start
 // GsmChannel.start(ats);
 
 // Web Sockets channel start
-const wsChannel: WebSocketChannel = WebSocketChannel.start(ats, new Server(app));
+const wsChannel: WebSocketChannel = WebSocketChannel.start(ats, server);
 ats.addWebSocketChannel(wsChannel);
 
 // MQTT channel start
@@ -80,4 +82,4 @@ if(process.platform === "win32") {
 }
 process.on("SIGINT", terminate);
 
-export { app };
+export { app, server };
