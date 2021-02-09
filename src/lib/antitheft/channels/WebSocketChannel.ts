@@ -12,7 +12,7 @@ import { Conversions } from "../../utils/Conversions";
 
 import { Server } from "http";
 
-import * as io from "socket.io";
+import { Server as SocketServer, Socket } from "socket.io";
 import { AntiTheftSystemResponse } from "../AntiTheftSystemResponse";
 import { AntiTheftSystemConfig } from "../AntiTheftSystemConfig";
 import { AntiTheftSystemErrors } from "../AntiTheftSystemErrors";
@@ -60,7 +60,7 @@ export class WebSocketChannel {
 
     private emitter: EventEmitter;
 
-    private socket: io.Server;
+    private socket: SocketServer;
 
     private eventsId: { [event: string]: string } = {};
 
@@ -79,7 +79,7 @@ export class WebSocketChannel {
 
         this.emitter = new EventEmitter();
 
-        this.socket = io.listen(this.server);
+        this.socket = new SocketServer(this.server);
 
         this.socket.on("connection", this.onConnectionEventHandler.bind(this));
 
@@ -176,7 +176,7 @@ export class WebSocketChannel {
         });
     }
 
-    private onConnectionEventHandler(ws: io.Socket): void {
+    private onConnectionEventHandler(ws: Socket): void {
         this.emitter.emit(WebSocketChannleEvents.WEBSOCKET_CLIENT_CONNECTED, { webSocketClientId: ws.id });
         ws.emit(ProtocolMesssages.Time, Math.round(Date.now() / 1000.0));
         ws.on(ProtocolMesssages.is, (data: any) => this.onIsEventHandler.call(this, ws, data));
@@ -188,7 +188,7 @@ export class WebSocketChannel {
         }); */
     }
 
-    private onIsEventHandler(ws: io.Socket, data: any): void {
+    private onIsEventHandler(ws: Socket, data: any): void {
         const mac: string = data.mac ? data.mac : "";
         const clientId: string = data.clientId ? data.clientId.toString() : "";
         const token: string = data.code ? data.code.toString() : "";
